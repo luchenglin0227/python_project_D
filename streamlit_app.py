@@ -14,14 +14,20 @@ CREATE TABLE IF NOT EXISTS records (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     upload_time TEXT,
     sleep_hours REAL,
-    breakfast TEXT,
+    sleep_quality INTEGER,
+    calories INTEGER,
+    carbs INTEGER,
+    protein INTEGER,
+    fat INTEGER,
     mood TEXT,
-    stress_level INTEGER,
+    warmup_minutes INTEGER,
     shooting_range TEXT,
+    hit INTEGER,
+    direction TEXT,
+    height TEXT,
     report_name TEXT
 )
 """)
-
 conn.commit()
 
 # =========================
@@ -33,7 +39,7 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title("🎯 不定向飛靶競賽表現分析系統")
+st.title("不定向飛靶競賽表現分析系統")
 
 st.markdown("---")
 
@@ -57,7 +63,7 @@ page = st.sidebar.radio(
 
 if page == "資料輸入":
 
-    st.header("📄 上傳與資料輸入")
+    st.header("上傳與資料輸入")
 
     col1, col2 = st.columns(2)
 
@@ -85,19 +91,57 @@ if page == "資料輸入":
             7.0,
             0.5
         )
+        
+        sleep_quality = st.slider(
+        "昨晚睡眠品質",
+        1,
+        10,
+        7
+    )
 
-        breakfast = st.selectbox(
-            "早餐狀況",
-            [
-                "未進食",
-                "簡單早餐",
-                "正常早餐",
-                "高蛋白早餐"
-            ]
-        )
+        arrival_time = st.time_input(
+        "抵達靶場時間"
+    )
+
+        warmup_minutes = st.number_input(
+        "熱身時間（分鐘）",
+        min_value=0,
+        max_value=180,
+        value=20
+    )
+        
+        st.subheader("早餐營養資訊")
+
+calories = st.number_input(
+    "早餐卡路里（kcal）",
+    min_value=0,
+    max_value=3000,
+    value=500
+)
+
+carbs = st.number_input(
+    "碳水化合物（g）",
+    min_value=0,
+    max_value=500,
+    value=50
+)
+
+protein = st.number_input(
+    "蛋白質（g）",
+    min_value=0,
+    max_value=300,
+    value=25
+)
+
+fat = st.number_input(
+    "脂肪（g）",
+    min_value=0,
+    max_value=300,
+    value=20
+)
 
         mood = st.select_slider(
-            "心理狀態",
+            "主觀精神狀態",
             options=[
                 "非常差",
                 "差",
@@ -107,15 +151,9 @@ if page == "資料輸入":
             ]
         )
 
-        stress_level = st.slider(
-            "壓力程度",
-            1,
-            10,
-            5
-        )
-
+     
         shooting_range = st.selectbox(
-            "今日靶場",
+            "比賽靶場",
             [
                 "台北靶場",
                 "桃園靶場",
@@ -126,7 +164,7 @@ if page == "資料輸入":
 
     st.markdown("---")
 
-    st.subheader("🧠 AI 分析結果（模擬）")
+    st.subheader("AI 分析結果（模擬）")
 
     if st.button("開始分析"):
 
@@ -173,7 +211,7 @@ if page == "資料輸入":
 
 elif page == "Dashboard":
 
-    st.header("📊 Dashboard")
+    st.header("Dashboard")
 
     cursor.execute("SELECT * FROM records")
 
