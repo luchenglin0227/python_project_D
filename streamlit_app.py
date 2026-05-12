@@ -155,10 +155,9 @@ fat = st.number_input(
         shooting_range = st.selectbox(
             "比賽靶場",
             [
-                "台北靶場",
-                "桃園靶場",
-                "台中靶場",
-                "高雄靶場"
+                "林口靶場a",
+                "林口靶場b",
+                "林口靶場c",
             ]
         )
 
@@ -181,26 +180,39 @@ fat = st.number_input(
         if confirmed:
 
             cursor.execute("""
-            INSERT INTO records (
-                upload_time,
-                sleep_hours,
-                breakfast,
-                mood,
-                stress_level,
-                shooting_range,
-                report_name
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (
-                datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                sleep_hours,
-                breakfast,
-                mood,
-                stress_level,
-                shooting_range,
-                report_file.name if report_file else "None"
-            ))
-
+INSERT INTO records (
+    upload_time,
+    sleep_hours,
+    sleep_quality,
+    calories,
+    carbs,
+    protein,
+    fat,
+    mood,
+    warmup_minutes,
+    shooting_range,
+    hit,
+    direction,
+    height,
+    report_name
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+""", (
+    datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+    sleep_hours,
+    sleep_quality,
+    calories,
+    carbs,
+    protein,
+    fat,
+    mood,
+    warmup_minutes,
+    shooting_range,
+    1,              # 暫時用 1 當 hit（模擬）
+    "center",       # 模擬 direction
+    "mid",          # 模擬 height
+    report_file.name if report_file else "None"
+))
             conn.commit()
 
             st.success("資料已成功儲存至資料庫")
@@ -223,7 +235,40 @@ elif page == "Dashboard":
 
         st.dataframe(rows)
 
-        st.metric(
+        import pandas as pd
+
+df = pd.DataFrame(rows, columns=[
+    "id", "upload_time",
+    "sleep_hours", "sleep_quality",
+    "calories", "carbs", "protein", "fat",
+    "mood", "warmup_minutes",
+    "shooting_range",
+    "hit", "direction", "height",
+    "report_name"
+])
+
+st.subheader("Performance KPI")
+
+hit_rate = df["hit"].mean()
+miss_rate = 1 - hit_rate
+
+col1, col2 = st.columns(2)
+
+with col1:
+    st.metric("Hit Rate", f"{hit_rate:.2%}")
+
+with col2:
+    st.metric("Miss Rate", f"{miss_rate:.2%}")
+    
+    st.subheader("Performance Trend")
+
+df["date"] = pd.to_datetime(df["upload_time"]).dt.date
+
+trend = df.groupby("date")["hit"].mean()
+
+st.line_chart(trend)
+
+st.metric(
             "總資料筆數",
             len(rows)
         )
