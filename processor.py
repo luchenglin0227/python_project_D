@@ -10,11 +10,9 @@ SHOOTING_FIELD_MAP = {
     "總發數": "total_shots",
     "一發命中數": "first_hit_count",
     "二發命中數": "second_hit_count",
-    "總命中率": "hit_rate",
-    "一發命中率": "first_hit_rate",
-    "二發命中率": "second_hit_rate",
     "失誤數": "miss_count",
-    "失誤率": "miss_rate",
+    # 注意：hit_rate、first_hit_rate、second_hit_rate、miss_rate
+    # 不從 OCR 對應，而是由程式根據原始數字重新計算，確保正確
 
     # Streamlit 介面欄位
     "入睡時間": "bedtime",
@@ -99,24 +97,27 @@ class DataProcessor:
 
         # 自動校正衍生指標 (Feature Engineering)
         # 即使 OCR 沒抓準百分比，我們也根據原始數字重新計算，確保數據 100% 正確
+        # 預設值：total_shots 為 0 時，所有命中率都設為 0
+        for rate_col in ['hit_rate', 'first_hit_rate', 'second_hit_rate', 'miss_rate']:
+            df[rate_col] = 0.0
+
         if 'total_shots' in df.columns and df['total_shots'].iloc[0] > 0:
             total = df['total_shots'].iloc[0]  # .iloc[0] 取 DataFrame 第一筆資料的值
 
             # 射擊數字一致性檢查：一發命中 + 二發命中 + 失誤 應等於總發數
+            # 人工確認後仍不一致，直接拋出錯誤阻止清洗，由 Streamlit 接住顯示給使用者
             expected = (df['first_hit_count'].iloc[0] +
                         df['second_hit_count'].iloc[0] +
                         df['miss_count'].iloc[0])
             if expected != total:
-                print(f"警告：數字不一致，總發數={total}，加總={expected}")
+                raise ValueError(f"數字不一致：總發數={total}，一發+二發+失誤={expected}，請回頭修正")
 
-            # 計算總命中率（第一發 + 第二發）
-            df['hit_rate'] = (df['first_hit_count'] + df['second_hit_count']) / total
-            # 計算第一發命中率
-            df['first_hit_rate'] = df['first_hit_count'] / total
-            # 計算第二發命中率
-            df['second_hit_rate'] = df['second_hit_count'] / total
-            # 計算脫靶率（1 - 總命中率）
-            df['miss_rate'] = 1 - df['hit_rate']
+            # total_shots > 0 才計算，如果發射次數是 0（OCR 沒讀到或是該次練習沒記錄），就直接填入 0
+            df['hit_rate'] = np.where(df['total_shots'] > 0, (df['first_hit_count'] + df['second_hit_count']) / df['total_shots'], 0)
+
+            df['first_hit_rate'] = np.where(df['total_shots'] > 0, df['first_hit_count'] / df['total_shots'], 0)
+
+            df['miss_rate'] = np.where(df['total_shots'] > 0,  df['miss_count'] / df['total_shots'], 0)
 
         # 數值範圍驗證
         # 疲勞程度和緊張程度應在 1-5 之間，超出範圍自動修正
@@ -125,13 +126,14 @@ class DataProcessor:
                 df[col] = df[col].clip(1, 5)
 
         # 時間欄位格式統一
-        # 確保時間欄位格式一致，避免 OCR 或使用者輸入格式不同造成問題
+        # 如果是字串（OCR 傳來）才需要轉換，Streamlit time_input 傳來的已經是 time 物件
         time_cols = ['bedtime', 'wake_up_time', 'arrival_time']
         for col in time_cols:
             if col in df.columns:
-                df[col] = pd.to_datetime(
-                    df[col].astype(str), format='%H:%M:%S', errors='coerce'
-                ).dt.time
+                if isinstance(df[col].iloc[0], str):
+                    df[col] = pd.to_datetime(
+                        df[col], format='%H:%M:%S', errors='coerce'
+                    ).dt.time
 
         # 處理飛靶 3x3 熱區矩陣 (Heatmap)
         # 邏輯：將 3x3 的二維陣列壓成 9 個獨立欄位，方便存入 CSV 或資料庫
@@ -162,36 +164,43 @@ class DataProcessor:
 # 主程式區塊：供本地測試用
 # 只有直接執行這個檔案時才會跑
 if __name__ == "__main__":
-    processor = DataProcessor()  # 建立一個 DataProcessor 物件，__init__ 會自動執行，載入 field_map
+    processor = DataProcessor()
 
-    # 模擬數據：假設這是 OCR 抓到的結果
-    sample_ocr = {
-        "總發數": "50",
-        "一發命中數": "37",
-        "二發命中數": "8",
-        "失誤數": "5",
+    # 範例 A：數字一致，正常清洗（37+8+5=50）
+    print("\n=== [測試 A：正常資料] ===")
+    ocr_a = {"總發數": "50", "一發命中數": "37", "二發命中數": "8", "失誤數": "5"}
+    manual_a = {
+        "入睡時間": time(23, 0), "起床時間": time(7, 0), "射擊日期": date(2026, 5, 14),
+        "到場時間": time(9, 0), "疲勞程度": 2, "緊張程度": 3, "射擊靶場": "大安靶場"
+    }
+    df_a = processor.process_record(ocr_a, manual_a)
+    print(f"計算睡眠時長: {df_a.iloc[0]['sleep_hours']} 小時 (預期: 8.0)")
+    print(f"命中率: {df_a.iloc[0]['hit_rate']:.2f} (預期: 0.90)")
+
+    # 範例 B：數字不一致，應該拋出 ValueError（37+8+3=48 ≠ 50）
+    print("\n=== [測試 B：數字不一致，應拋出錯誤] ===")
+    ocr_b_bad = {"總發數": "50", "一發命中數": "37", "二發命中數": "8", "失誤數": "3"}
+    try:
+        processor.process_record(ocr_b_bad, manual_a)
+    except ValueError as e:
+        print(f"成功攔截錯誤：{e}")
+
+    # 範例 C：總發數為 0 的防呆
+    print("\n=== [測試 C：總發數為 0 的防呆] ===")
+    ocr_c = {"總發數": "0", "一發命中數": "0", "二發命中數": "0", "失誤數": "0"}
+    manual_c = {
+        "入睡時間": time(0, 0), "起床時間": time(6, 0), "射擊日期": date(2026, 5, 15),
+        "到場時間": time(8, 0), "疲勞程度": 5, "緊張程度": 5, "射擊靶場": "大安靶場"
+    }
+    df_c = processor.process_record(ocr_c, manual_c)
+    print(f"總發數為 0 時的命中率: {df_c.iloc[0]['hit_rate']} (預期: 0.0)")
+
+    # 範例 D：測試 3x3 熱區矩陣攤平
+    print("\n=== [測試 D：熱區矩陣解析] ===")
+    ocr_d = {
+        "總發數": "10", "一發命中數": "5", "二發命中數": "2", "失誤數": "3",
         "heatmap_matrix": [[0.1, 0.2, 0.3], [0.4, 0.5, 0.6], [0.7, 0.8, 0.9]]
     }
-
-    # 模擬數據：假設這是表單填寫的結果
-    sample_manual = {
-        "入睡時間": time(23, 0),    # 晚上 11 點入睡
-        "起床時間": time(7, 0),     # 早上 7 點起床
-        "射擊日期": date(2024, 1, 15),
-        "到場時間": time(9, 0),
-        "熱身時長": "20",
-        "早餐熱量": "650",
-        "蛋白質": "30",
-        "咖啡因攝取": "100",
-        "疲勞程度": 2,
-        "緊張程度": 3,
-        "射擊靶場": "A靶場"
-    }
-
-    # 執行整個清洗流程，回傳乾淨的 DataFrame
-    clean_df = processor.process_record(sample_ocr, sample_manual)
-
-    # 印出結果預覽
-    print("--- 數據清洗成功 ---")
-    print(clean_df.head())
-    print(clean_df[['fatigue_level', 'tension_level']])
+    df_d = processor.process_record(ocr_d, manual_a)
+    print("熱區左上 (heat_lh):", df_d.iloc[0]['heat_lh'])
+    print("熱區右下 (heat_rl):", df_d.iloc[0]['heat_rl'])
