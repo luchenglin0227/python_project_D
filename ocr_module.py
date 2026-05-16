@@ -6,6 +6,7 @@ import fitz
 import easyocr
 import re
 from datetime import datetime, timedelta
+from processor import DataProcessor
 
 # --- 1. 初始化與核心邏輯區 ---
 
@@ -133,36 +134,50 @@ if uploaded_file:
                 matrix_values[name] = grid_cols[i % 3].number_input(name, value=heat_scores[i])
 
         if st.button("💾 確認存檔"):
-            # 5. 系統管理欄位與彙整
-            final_data = {
-                "user_id": user_id,
-                "record_date": record_date.strftime("%Y-%m-%d"),
-                "match_start_time": match_start_time.strftime("%H:%M"),
-                "Shooting_range": shooting_range,
-                "total_shots": total_shots,
-                "total_hits": total_hits,
-                "hit_rate": hit_rate,
-                "first_hit_count": first_hit_count,
-                "second_hit_count": second_hit_count,
-                "miss_count": miss_count,
-                "bedtime": bedtime.strftime("%H:%M"),
-                "wake_up_time": wake_up_time.strftime("%H:%M"),
-                "sleep_duration": sleep_duration,
-                "arrival_time": arrival_time.strftime("%H:%M"),
-                "warm_up_time": warm_up_time,
-                "breakfast_calories": breakfast_calories,
-                "breakfast_protein": breakfast_protein,
-                "caffeine_intake": caffeine_intake,
-                "fatigue_level": fatigue_level,
-                "tension_level": tension_level,
-                **matrix_values,
-                "raw_image_path": f"./storage/{user_id}_{record_date}.jpg",
-                "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            # 組裝 OCR 辨識的資料（射擊表現數值 + 熱區矩陣）
+            ocr_data = {
+                "總發數": total_shots,
+                "一發命中數": first_hit_count,
+                "二發命中數": second_hit_count,
+                "失誤數": miss_count,
+                "heatmap_matrix": [
+                    [matrix_values["miss_left_high"], matrix_values["miss_middle_high"], matrix_values["miss_right_high"]],
+                    [matrix_values["miss_left_mid"],  matrix_values["miss_middle_mid"],  matrix_values["miss_right_mid"]],
+                    [matrix_values["miss_left_low"],  matrix_values["miss_middle_low"],  matrix_values["miss_right_low"]],
+                ]
             }
-            
-            df = pd.DataFrame([final_data])
-            st.success("資料已成功結構化！")
-            st.dataframe(df.T, height=600)
-            
-            csv = df.to_csv(index=False).encode('utf-8-sig')
-            st.download_button("匯出 CSV 檔案", data=csv, file_name=f"{record_date}_log.csv")
+
+            # 組裝使用者手動輸入的資料
+            manual_data = {
+                "使用者編號": user_id,
+                "射擊日期": record_date,
+                "比賽時間": match_start_time,
+                "靶場": shooting_range,
+                "入睡時間": bedtime,
+                "起床時間": wake_up_time,
+                "到場時間": arrival_time,
+                "熱身時長": warm_up_time,
+                "早餐熱量": breakfast_calories,
+                "蛋白質": breakfast_protein,
+                "咖啡因攝取": caffeine_intake,
+                "疲勞程度": fatigue_level,
+                "緊張程度": tension_level,
+            }
+
+            # 交給 DataProcessor 執行清洗與驗證
+            try:
+                processor = DataProcessor()
+                clean_df = processor.process_record(
+                    ocr_data,
+                    manual_data,
+                    raw_image_path=f"./storage/{user_id}_{record_date}.jpg"
+                )
+                st.success("資料已成功結構化！")
+                st.dataframe(clean_df.T, height=600)
+
+                csv = clean_df.to_csv(index=False).encode('utf-8-sig')
+                st.download_button("匯出 CSV 檔案", data=csv, file_name=f"{record_date}_log.csv")
+
+            except ValueError as e:
+                # 一致性檢查失敗（例如一發+二發+失誤 ≠ 總發數）
+                st.error(f"❌ 資料驗證失敗：{e}")
