@@ -143,7 +143,8 @@ class DataProcessor:
                 'miss_left_low',    'miss_middle_low',    'miss_right_low'
             ]
             for i, col_name in enumerate(heatmap_cols):
-                df[col_name] = int(matrix[i]) if i < len(matrix) else 0
+                # 保留 float，因為 ocr_module 傳來的是命中率（0.0 - 100.0）
+                df[col_name] = float(matrix[i]) if i < len(matrix) else 0.0
         else:
             # 若無傳入矩陣，預設補 0
             heatmap_cols = [
@@ -162,6 +163,15 @@ class DataProcessor:
         df['raw_image_path'] = raw_image_path
         df['ocr_confidence'] = float(ocr_confidence)
         df['created_at'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        # 移除 heatmap_matrix 欄位（已攤平成 9 個獨立欄位，不需要保留原始矩陣）
+        if 'heatmap_matrix' in df.columns:
+            df = df.drop(columns=['heatmap_matrix'])
+
+        # 把所有 time/date 物件轉成字串，避免 pyarrow 序列化失敗
+        for col in df.columns:
+            if df[col].dtype == object:
+                df[col] = df[col].apply(lambda x: str(x) if hasattr(x, 'strftime') else x)
 
         return df
 

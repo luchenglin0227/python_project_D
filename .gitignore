@@ -8,3 +8,7 @@ __pycache__/
 
 # --- 敏感資訊 (絕對不能上傳) ---
 .env
+
+# 隱藏 Google 雲端憑證
+*.json
+.streamlit/secrets.toml
