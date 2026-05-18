@@ -10,5 +10,6 @@ __pycache__/
 .env
 
 # 隱藏 Google 雲端憑證
-*.json
+cloud-key.json
 .streamlit/secrets.toml
+*.json
