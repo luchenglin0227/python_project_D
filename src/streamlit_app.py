@@ -6,7 +6,10 @@ from datetime import datetime
 # Database
 # =========================
 
-conn = sqlite3.connect("shooting_data.db")
+conn = sqlite3.connect(
+    "shooting_data.db",
+    check_same_thread=False
+)
 cursor = conn.cursor()
 
 cursor.execute("""
@@ -113,34 +116,33 @@ if page == "資料輸入":
         st.subheader("早餐營養資訊")
 
 calories = st.number_input(
-    "早餐卡路里（kcal）",
-    min_value=0,
-    max_value=3000,
-    value=500
-)
+            "早餐卡路里（kcal）",
+            min_value=0,
+            max_value=3000,
+            value=500
+        )
 
-carbs = st.number_input(
-    "碳水化合物（g）",
-    min_value=0,
-    max_value=500,
-    value=50
-)
+        carbs = st.number_input(
+            "碳水化合物（g）",
+            min_value=0,
+            max_value=500,
+            value=50
+        )
 
-protein = st.number_input(
-    "蛋白質（g）",
-    min_value=0,
-    max_value=300,
-    value=25
-)
+        protein = st.number_input(
+            "蛋白質（g）",
+            min_value=0,
+            max_value=300,
+            value=25
+        )
 
-fat = st.number_input(
-    "脂肪（g）",
-    min_value=0,
-    max_value=300,
-    value=20
-)
-
-        mood = st.select_slider(
+        fat = st.number_input(
+            "脂肪（g）",
+            min_value=0,
+            max_value=300,
+            value=20
+        )
+         mood = st.select_slider(
             "主觀精神狀態",
             options=[
                 "非常差",
@@ -151,16 +153,14 @@ fat = st.number_input(
             ]
         )
 
-     
         shooting_range = st.selectbox(
             "比賽靶場",
             [
-                "林口靶場a",
-                "林口靶場b",
-                "林口靶場c",
+                "林口靶場A",
+                "林口靶場B",
+                "林口靶場C",
             ]
         )
-
     st.markdown("---")
 
     st.subheader("AI 分析結果（模擬）")
@@ -235,44 +235,43 @@ elif page == "Dashboard":
 
         st.dataframe(rows)
 
-        import pandas as pd
+         import pandas as pd
 
-df = pd.DataFrame(rows, columns=[
-    "id", "upload_time",
-    "sleep_hours", "sleep_quality",
-    "calories", "carbs", "protein", "fat",
-    "mood", "warmup_minutes",
-    "shooting_range",
-    "hit", "direction", "height",
-    "report_name"
-])
+        df = pd.DataFrame(rows, columns=[
+            "id", "upload_time",
+            "sleep_hours", "sleep_quality",
+            "calories", "carbs", "protein", "fat",
+            "mood", "warmup_minutes",
+            "shooting_range",
+            "hit", "direction", "height",
+            "report_name"
+        ])
 
-st.subheader("Performance KPI")
+        st.subheader("Performance KPI")
 
-hit_rate = df["hit"].mean()
-miss_rate = 1 - hit_rate
+        hit_rate = df["hit"].mean()
+        miss_rate = 1 - hit_rate
 
-col1, col2 = st.columns(2)
+        col1, col2 = st.columns(2)
 
-with col1:
-    st.metric("Hit Rate", f"{hit_rate:.2%}")
+        with col1:
+            st.metric("Hit Rate", f"{hit_rate:.2%}")
 
-with col2:
-    st.metric("Miss Rate", f"{miss_rate:.2%}")
-    
-    st.subheader("Performance Trend")
+        with col2:
+            st.metric("Miss Rate", f"{miss_rate:.2%}")
 
-df["date"] = pd.to_datetime(df["upload_time"]).dt.date
+        st.subheader("Performance Trend")
 
-trend = df.groupby("date")["hit"].mean()
+        df["date"] = pd.to_datetime(df["upload_time"]).dt.date
 
-st.line_chart(trend)
+        trend = df.groupby("date")["hit"].mean()
 
-st.metric(
+        st.line_chart(trend)
+
+        st.metric(
             "總資料筆數",
             len(rows)
         )
-
     else:
 
         st.info("目前尚無資料")
