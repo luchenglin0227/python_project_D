@@ -101,7 +101,6 @@ def get_all_records():
     從 Google Sheets 讀取所有歷史紀錄並回傳為 DataFrame
     """
     try:
-        import streamlit as st
         # 1. 建立雲端連接
         conn = st.connection("gsheets", type=GSheetsConnection)
         

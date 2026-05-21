@@ -9,7 +9,12 @@ __pycache__/
 # --- 敏感資訊 (絕對不能上傳) ---
 .env
 
-# 隱藏 Google 雲端憑證
+# 隱藏 Google 雲端憑證與本地金鑰
 cloud-key.json
 .streamlit/secrets.toml
 *.json
+
+# --- 阻擋本地測試產生的髒資料、本地圖片與備份檔 ---
+.DS_Store
+storage/
+*.csv
