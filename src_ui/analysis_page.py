@@ -26,6 +26,7 @@ def render_page():
                 
                 # 💡 之後可以直接在這邊底下畫折線圖/搜尋功能
                 st.dataframe(history_df, use_container_width=True, height=400)
+import pandas as pd
             else:
                 st.warning("📭 雲端目前沒有任何紀錄。")
         except Exception as e:
