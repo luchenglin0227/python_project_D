@@ -31,6 +31,66 @@ def render_page():
                 if total_count > 0:
                     # 建立反向對映表
                     reverse_map = {v: k for k, v in SHOOTING_FIELD_MAP.items()}
+                # =============================================================
+                    # 📌 大盤視覺化看板 (Dashboard) 
+                    # =============================================================
+                    st.markdown("---")
+                    st.header("📈 全隊整體表現 Dashboard")
+                    
+                    # 尋找組員資料表中對應的命中率欄位
+                    hit_rate_col = None
+                    for eng, zh in SHOOTING_FIELD_MAP.items():
+                        if "命中率" in eng or "hit_rate" in zh:
+                            hit_rate_col = zh
+                            break
+                    if not hit_rate_col:
+                        for col in raw_df.columns:
+                            if "命中率" in str(col) or "rate" in str(col).lower():
+                                hit_rate_col = col
+                                break
+
+                    # 如果找到了命中率數據，就畫出你的精美 KPI & 趨勢圖
+                    if hit_rate_col in raw_df.columns:
+                        try:
+                            # 確保數據是數字
+                            valid_rates = pd.to_numeric(raw_df[hit_rate_col], errors='coerce').dropna()
+                            avg_hit_rate = valid_rates.mean()
+                            
+                            # 如果命中率原本就是 0-100 的百分比，則調整計算
+                            if avg_hit_rate > 1.0:
+                                avg_hit_rate = avg_hit_rate / 100.0
+                                
+                            avg_miss_rate = 1.0 - avg_hit_rate
+
+                            # 1. 你的 Performance KPI 儀表板
+                            st.subheader("Performance KPI")
+                            dkpi1, dkpi2 = st.columns(2)
+                            dkpi1.metric("全隊平均 Hit Rate", f"{avg_hit_rate:.2%}")
+                            dkpi2.metric("全隊平均 Miss Rate", f"{avg_miss_rate:.2%}")
+
+                            # 2. 你的 Performance Trend 趨勢折線圖
+                            st.subheader("Performance Trend (歷史表現趨勢)")
+                            date_col = None
+                            for eng, zh in SHOOTING_FIELD_MAP.items():
+                                if "日期" in eng or "date" in zh:
+                                    date_col = zh
+                                    break
+                            
+                            if date_col in raw_df.columns:
+                                trend_df = raw_df.copy()
+                                trend_df["parsed_date"] = pd.to_datetime(trend_df[date_col]).dt.date
+                                trend_df[hit_rate_col] = pd.to_numeric(trend_df[hit_rate_col], errors='coerce')
+                                if trend_df[hit_rate_col].mean() > 1.0:
+                                    trend_df[hit_rate_col] = trend_df[hit_rate_col] / 100.0
+                                    
+                                trend_data = trend_df.groupby("parsed_date")[hit_rate_col].mean()
+                                st.line_chart(trend_data)
+                        except Exception as chart_err:
+                            st.info(f"💡 趨勢圖表正在等待更多標準格式數據累積中...")
+                    else:
+                        st.info("💡 雲端資料串接成功！當正式數據寫入後，此處將自動呈現你的 Performance KPI 與 Trend 折線圖。")
+                    
+                    st.markdown("---")                    
                     
                     # 將 DataFrame 的欄位全部轉成中文名
                     display_df = raw_df.rename(columns=reverse_map)
