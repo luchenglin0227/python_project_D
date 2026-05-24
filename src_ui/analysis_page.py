@@ -24,8 +24,8 @@ def render_page():
                 # 從 database.py 撈取原始 DataFrame
                 raw_df = database.load_records()
                 
-            if raw_df is not None and not raw_df.empty:
-                st.metric(label="📊 目前已累積總筆數", value=f"{len(raw_df)} 筆")
+            if raw_df is not None:
+                st.metric(label="📊 目前已累積總筆數", value=f"{len(raw_df)} 筆" if not raw_df.empty else "0 筆")
                 
                 # 建立反向對映表（從英文變數名稱轉回中文）
                 reverse_map = {v: k for k, v in SHOOTING_FIELD_MAP.items()}
@@ -50,7 +50,6 @@ def render_page():
                 
                 #精簡主畫面，呈現選手、射擊日期與紀錄日期
                 st.subheader("📋 歷程總覽清單")
-                st.caption("💡 請在下方下拉選單中選取特定紀錄，即可查看完整詳細數據數據。")
                 
                 # 建立主下拉選單的選項字串
                 record_options = []
@@ -61,7 +60,7 @@ def render_page():
                     # 將三個核心資訊組合在一起
                     record_options.append(f"👤 選手: {u_val} | 📅 射擊日期: {d_val} | 🕒 紀錄時間: {c_val} (編號: {idx})")
                 
-                selected_option = st.selectbox("🔍 請選擇欲檢視的詳細紀錄：", record_options)
+                selected_option = st.selectbox("💡 請在下方下拉選單中選取特定紀錄，即可查看完整詳細數據數據：", record_options)
                 
                 # 找出被選中的那一筆的 index
                 selected_idx = int(selected_option.split("(編號: ")[1].replace(")", ""))
@@ -70,7 +69,7 @@ def render_page():
                 # 展開詳細資料
                 st.markdown("---")
                 display_title = selected_option.split(" (編號:")[0]
-                st.subheader(f"🔍 詳細數據展開：{display_title}")
+                st.subheader(f"🔍 詳細數據展開：")
                 
                 # 用美觀的卡片卡片呈現
                 with st.container(border=True):
