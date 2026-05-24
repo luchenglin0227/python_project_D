@@ -94,7 +94,8 @@ def render_page():
 
                 sleep_duration = calculate_sleep_duration(bedtime, wake_up_time)
                 st.info(f"(系統自動換算)睡眠時長: {sleep_duration} 小時")
-
+                sleep_quality = st.slider("💤 昨晚睡眠品質 (1-10)", 1, 10, 7)
+                
                 c5, c6, c7 = st.columns(3)
                 arrival_time = c5.time_input("到場時間", value=datetime.strptime("08:30", "%H:%M").time())
                 warm_up_time = c6.number_input("熱身時長 (min)", value=20.0)
