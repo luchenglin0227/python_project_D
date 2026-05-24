@@ -41,6 +41,14 @@ def render_page():
                     st.image(preview_img, caption="PDF 檔案首頁預覽", use_container_width=True)
                 else:
                     st.image(file_bytes, caption="已上傳的成績單圖片", use_container_width=True)
+                    st.markdown("---")
+            # 📌「上傳當日照片」功能
+            athlete_photo = st.file_uploader(
+                "📸 上傳當日選手照片 (選填)",
+                type=["jpg", "png", "jpeg"]
+            )
+            if athlete_photo:
+                st.image(athlete_photo, caption="當日選手照片預覽", width=300)      
             else:
                 # 若已經辨識成功，則顯示 AI 處理過的圖片
                 cached_img = st.session_state["ocr_result_cache"]["img"]
