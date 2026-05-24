@@ -1,3 +1,4 @@
+# src_ui/upload_page.py
 import streamlit as st
 import cv2
 import pandas as pd
@@ -8,7 +9,9 @@ from ocr_module import process_ocr_and_heatmap, calculate_sleep_duration
 
 
 def render_page():
-    st.title("📸 飛靶 OCR 辨識與雲端同步")
+    st.title("飛靶 OCR 辨識與日常生活紀錄")
+    st.caption("💡提醒：您可以同時進行 AI 影像辨識與填寫生活因子")
+    st.markdown("---")
 
     uploaded_file = st.file_uploader("上傳成績單 (JPG, PNG, PDF)", type=["jpg", "png", "pdf"])
 
@@ -16,16 +19,56 @@ def render_page():
         file_bytes = uploaded_file.read()
         is_pdf = uploaded_file.type == "application/pdf"
 
-        with st.spinner("正在執行 AI 辨識與光譜映射分析（初次讀取耗時較久，請稍候）..."):
-            img, full_text, heat_scores, ocr_conf = process_ocr_and_heatmap(file_bytes, is_pdf)
+        # -------------------------------------------------------------
+        # UX 優化：初始化快取，避免右側日常因子輸入時導致 AI 辨識資料洗掉
+        # -------------------------------------------------------------
+        if "ocr_result_cache" not in st.session_state:
+            st.session_state["ocr_result_cache"] = None
 
         col_img, col_form = st.columns([4, 6])
 
+        # =============================================================
+        # 左側區塊：檔案預覽與 AI 辨識獨立觸發區
+        # =============================================================
         with col_img:
-            st.image(cv2.cvtColor(img, cv2.COLOR_BGR2RGB), use_container_width=True)
+            st.subheader("成績檔案預覽")
+            
+            # 若尚未辨識或正在辨識，先將原始檔案轉為預覽呈現，不用等 AI 跑完
+            if st.session_state["ocr_result_cache"] is None:
+                if is_pdf:
+                    from ocr_module import convert_pdf_to_img
+                    preview_img = convert_pdf_to_img(file_bytes)
+                    st.image(preview_img, caption="PDF 檔案首頁預覽", use_container_width=True)
+                else:
+                    st.image(file_bytes, caption="已上傳的成績單圖片", use_container_width=True)
+            else:
+                # 若已經辨識成功，則顯示 AI 處理過的圖片
+                cached_img = st.session_state["ocr_result_cache"]["img"]
+                st.image(cv2.cvtColor(cached_img, cv2.COLOR_BGR2RGB), caption="AI 光譜軌跡分析圖", use_container_width=True)
 
+            st.markdown("---")
+            # 將 AI 辨識做成獨立按鈕，點擊後觸發，日常因子不需要等待此步驟
+            if st.button("開始執行 OCR 辨識", use_container_width=True):
+                with st.spinner("正在執行辨識與光譜映射分析，請同時填寫右側日常因子..."):
+                    try:
+                        img, full_text, heat_scores, ocr_conf = process_ocr_and_heatmap(file_bytes, is_pdf)
+                        # 將 AI 吐出的所有數據寫入快取
+                        st.session_state["ocr_result_cache"] = {
+                            "img": img,
+                            "full_text": full_text,
+                            "heat_scores": heat_scores,
+                            "ocr_conf": ocr_conf
+                        }
+                        st.success("🎉 AI 影像辨識與光譜矩陣換算成功！")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ 辨識過程中發生錯誤：{e}")
+
+        # =============================================================
+        # 右側區塊：資料錄入面板（隨時可點擊、輸入，零延遲）
+        # =============================================================
         with col_form:
-            st.subheader("🛠️ 資料錄入面板")
+            st.subheader("資料錄入面板")
 
             # 1. 基本資訊
             with st.expander("🆔 基本資訊", expanded=True):
@@ -56,7 +99,14 @@ def render_page():
                 fatigue_level = st.select_slider("fatigue_level (疲勞度)", options=[1, 2, 3, 4, 5], value=2)
                 tension_level = st.select_slider("tension_level (緊張度)", options=[1, 2, 3, 4, 5], value=1)
 
-            # 3. 射擊表現
+            # -------------------------------------------------------------
+            # 核心數據串接：檢查是否有辨識好的 AI 快取數據
+            # -------------------------------------------------------------
+            has_cache = st.session_state["ocr_result_cache"] is not None
+            current_heat_scores = st.session_state["ocr_result_cache"]["heat_scores"] if has_cache else [100.0]*9
+            current_ocr_conf = st.session_state["ocr_result_cache"]["ocr_conf"] if has_cache else 1.0
+
+            # 3. 射擊表現 (若有快取則動態帶入，若無則顯示預設值)
             with st.expander("📊 射擊表現數據 (OCR 自動帶入)"):
                 c10, c11, c12 = st.columns(3)
                 total_shots = c10.number_input("total_shots", value=125)
@@ -70,7 +120,11 @@ def render_page():
 
             # 4. 空間分析矩陣
             with st.expander("🔥 空間分析矩陣 (方位命中率 %)", expanded=True):
-                st.info("系統已根據光譜顏色自動換算命中率 (偏綠接近100%，偏橘紅接近0%)")
+                if has_cache:
+                    st.success(f"✅ 已成功帶入 AI 換算數據！(辨識真實信心分數：{current_ocr_conf})")
+                else:
+                    st.info("💡 提示：點擊左側辨識按鈕後，此處九宮格將會自動代入分析結果。")
+                    
                 grid_cols = st.columns(3)
                 matrix_names = [
                     "miss_left_high", "miss_middle_high", "miss_right_high",
@@ -82,10 +136,14 @@ def render_page():
                 for i, name in enumerate(matrix_names):
                     matrix_values[name] = grid_cols[i % 3].number_input(
                         name, min_value=0.0, max_value=100.0,
-                        value=float(heat_scores[i]), step=0.1
+                        value=float(current_heat_scores[i]), step=0.1
                     )
 
-            if st.button("💾 確認存檔"):
+            # =============================================================
+            # 儲存確認與同步雲端
+            # =============================================================
+            if st.button("💾 確認存檔", use_container_width=True):
+                # 建立要送入 processor 的資料結構
                 ocr_data = {
                     "總發數": total_shots,
                     "一發命中數": first_hit_count,
@@ -116,11 +174,11 @@ def render_page():
 
                 try:
                     processor = DataProcessor()
-                    # 加入 ocr_confidence=ocr_conf 參數，讓真實分數進入 DataFrame
+                    # 傳入從快取中提取的 AI 信心分數 (current_ocr_conf)
                     clean_df = processor.process_record(
                         ocr_data, manual_data,
                         raw_image_path=f"./storage/{user_id}_{record_date}.jpg",
-                        ocr_confidence=ocr_conf  # 加上ocr_conf 
+                        ocr_confidence=current_ocr_conf
                     )
 
                     with st.spinner("正在將資料即時同步至雲端 Google Sheets..."):
@@ -133,6 +191,9 @@ def render_page():
                             "數值": [str(v) for v in clean_df.iloc[0].tolist()]
                         })
                         st.dataframe(display_df, height=600)
+                        
+                        # 儲存成功後，將快取清空，方便下一筆紀錄上傳
+                        st.session_state["ocr_result_cache"] = None
                     else:
                         st.error("❌ 資料已成功結構化，但同步到雲端時失敗，請檢查網路或密鑰設定。")
 
