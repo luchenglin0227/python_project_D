@@ -26,18 +26,19 @@ def render_page():
                 
             if raw_df is not None:
                 total_count = len(raw_df) if not raw_df.empty else 0
-                st.markdown(f"### 📊 目前已累積總筆數： :green[{total_count} 筆]")
+                st.markdown(f"### 目前已累積總筆數： :green[{total_count} 筆]")
                 
-                # 建立反向對映表（從英文變數名稱轉回中文）
-                reverse_map = {v: k for k, v in SHOOTING_FIELD_MAP.items()}
-                
-                # 將 DataFrame 的欄位全部轉成中文名
-                display_df = raw_df.rename(columns=reverse_map)
-                
-                # 取得核心欄位的中文名稱
-                user_col_zh = reverse_map.get(SHOOTING_FIELD_MAP.get("使用者編號", "user_id"), "使用者編號")
-                date_col_zh = reverse_map.get(SHOOTING_FIELD_MAP.get("射擊日期", "record_date"), "射擊日期")
-                created_col_zh = "系統紀錄時間"
+                if total_count > 0:
+                    # 建立反向對映表
+                    reverse_map = {v: k for k, v in SHOOTING_FIELD_MAP.items()}
+                    
+                    # 將 DataFrame 的欄位全部轉成中文名
+                    display_df = raw_df.rename(columns=reverse_map)
+                    
+                    # 取得核心欄位的中文名稱
+                    user_col_zh = reverse_map.get(SHOOTING_FIELD_MAP.get("使用者編號", "user_id"), "使用者編號")
+                    date_col_zh = reverse_map.get(SHOOTING_FIELD_MAP.get("射擊日期", "record_date"), "射擊日期")
+                    created_col_zh = "系統紀錄時間"
                 
                 # 射擊日期
                 if date_col_zh in display_df.columns:
@@ -48,7 +49,7 @@ def render_page():
                     display_df[created_col_zh] = pd.to_datetime(display_df[created_col_zh]).dt.strftime('%Y-%m-%d %H:%M:%S')
                 
                 #精簡主畫面，呈現選手、射擊日期與紀錄日期
-                st.subheader("📋 歷程總覽清單")
+                st.subheader("歷程總覽清單")
                 
                 # 建立主下拉選單的選項字串
                 record_options = []
@@ -57,7 +58,7 @@ def render_page():
                     d_val = row.get(date_col_zh, "未知日期")
                     c_val = row.get(created_col_zh, "未知時間")
                     # 項目加粗呈現
-                    record_options.append(f"**選手**: {u_val} | **射擊日期**: {d_val} | **紀錄時間**: {c_val} (編號: {idx})")
+                    record_options.append(f"【選手】: {u_val} | 【射擊日期】: {d_val} | 【紀錄時間】: {c_val} (編號: {idx})")
                 
                 selected_option = st.selectbox("💡 請在下方下拉選單中選取特定紀錄，即可查看完整詳細數據數據：", record_options)
                 
