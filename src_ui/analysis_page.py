@@ -88,29 +88,29 @@ def render_page():
                     selected_idx = int(selected_time_str.split("(序號: ")[1].replace(")", ""))
                     selected_row = display_df[display_df['系統內部序號'] == selected_idx].iloc[0]
                 
-                # 展開詳細資料
-                st.markdown("---")
-                display_title = selected_option.split(" (編號:")[0]
-                st.subheader(f"詳細數據展開：")
-                
-                with st.container(border=True):
-                    col1, col2 = st.columns(2)
+                    #展開詳細資料
+                    st.markdown("---")
+                    st.subheader(f"🔍 詳細數據展開：選手 {selected_user} 在 {selected_date} 的訓練紀錄")
                     
-                    items = list(selected_row.items())
-                    mid = (len(items) + 1) // 2
-                    
-                    with col1:
-                        for key, val in items[:mid]:
-                            if str(key).lower() in ['index', 'id']: continue
-                            st.write(f"**📌 {key}** : `{val}`")
-                            
-                    with col2:
-                        for key, val in items[mid:]:
-                            if str(key).lower() in ['index', 'id']: continue
-                            st.write(f"**📌 {key}** : `{val}`")
-                            
-            else:
-                st.warning("📭 雲端目前沒有任何紀錄。")
+                    #用雙欄呈現
+                    with st.container(border=True):
+                        col1, col2 = st.columns(2)
+                        
+                        # 轉換為清單，過濾掉不需要顯示的內部序號
+                        items = [(k, v) for k, v in selected_row.items() if k != '系統內部序號']
+                        mid = (len(items) + 1) // 2
+                        
+                        with col1:
+                            for key, val in items[:mid]:
+                                if str(key).lower() in ['index', 'id']: continue
+                                st.write(f"**📌 {key}** : `{val}`")
+                                
+                        with col2:
+                            for key, val in items[mid:]:
+                                if str(key).lower() in ['index', 'id']: continue
+                                st.write(f"**📌 {key}** : `{val}`")
+                else:
+                    st.warning("📭 雲端目前沒有任何紀錄。")
                 
         except Exception as e:
             st.error(f"❌ 無法讀取歷史紀錄：{e}")
