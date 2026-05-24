@@ -118,7 +118,7 @@ def render_page():
                 second_hit_count = c14.number_input("二發命中數", value=5)
                 miss_count = c15.number_input("失誤數", value=24)
 
-            # 4. 空間分析矩陣
+           # 4. 空間分析矩陣
             with st.expander("🔥 空間分析矩陣 (方位命中率 %)", expanded=True):
                 if has_cache:
                     st.success(f"✅ 已成功帶入 AI 換算數據！(辨識真實信心分數：{current_ocr_conf})")
@@ -126,7 +126,9 @@ def render_page():
                     st.info("💡 提示：點擊左側辨識按鈕後，此處九宮格將會自動代入分析結果。")
                     
                 grid_cols = st.columns(3)
-                matrix_names = [
+                
+                # 定義清晰的（顯示中文, 內部英文Key）結構
+                matrix_configs = [
                     ("左側高位命中率", "miss_left_high"), 
                     ("中間高位命中率", "miss_middle_high"), 
                     ("右側高位命中率", "miss_right_high"),
@@ -139,9 +141,10 @@ def render_page():
                 ]
 
                 matrix_values = {}
-                for i, name in enumerate(matrix_names):
-                    matrix_values[name] = grid_cols[i % 3].number_input(
-                        name, min_value=0.0, max_value=100.0,
+                # 修正:分開處理顯示標籤 (label_zh) 與字典 key (name_en)
+                for i, (label_zh, name_en) in enumerate(matrix_configs):
+                    matrix_values[name_en] = grid_cols[i % 3].number_input(
+                        label_zh, min_value=0.0, max_value=100.0,
                         value=float(current_heat_scores[i]), step=0.1
                     )
 
@@ -149,7 +152,7 @@ def render_page():
             # 儲存確認與同步雲端
             # =============================================================
             if st.button("💾 確認存檔", use_container_width=True):
-                # 建立要送入 processor 的資料結構
+                # 修正：打包時使用正確的英文字串 key (name_en)
                 ocr_data = {
                     "總發數": total_shots,
                     "一發命中數": first_hit_count,
