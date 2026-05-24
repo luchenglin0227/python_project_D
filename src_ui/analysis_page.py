@@ -25,16 +25,11 @@ def render_page():
                 raw_df = database.load_records()
                 
             if raw_df is not None:
-                # 取得總筆數（若空表格則為 0）
                 total_count = len(raw_df) if not raw_df.empty else 0
-                
-                # 用提示框呈現
-                st.info(f"📊 **目前已累積總筆數**：` {total_count} ` 筆")
+                st.markdown(f"### 📊 目前已累積總筆數： :green[{total_count} 筆]")
                 
                 # 建立反向對映表（從英文變數名稱轉回中文）
                 reverse_map = {v: k for k, v in SHOOTING_FIELD_MAP.items()}
-                # 將 created_at 補進反向對映字典中
-                reverse_map["created_at"] = "系統紀錄時間"
                 
                 # 將 DataFrame 的欄位全部轉成中文名
                 display_df = raw_df.rename(columns=reverse_map)
@@ -61,8 +56,8 @@ def render_page():
                     u_val = row.get(user_col_zh, f"未知選手({idx})")
                     d_val = row.get(date_col_zh, "未知日期")
                     c_val = row.get(created_col_zh, "未知時間")
-                    # 將三個核心資訊組合在一起
-                    record_options.append(f"👤 選手: {u_val} | 📅 射擊日期: {d_val} | 🕒 紀錄時間: {c_val} (編號: {idx})")
+                    # 項目加粗呈現
+                    record_options.append(f"**選手**: {u_val} | **射擊日期**: {d_val} | **紀錄時間**: {c_val} (編號: {idx})")
                 
                 selected_option = st.selectbox("💡 請在下方下拉選單中選取特定紀錄，即可查看完整詳細數據數據：", record_options)
                 
@@ -73,9 +68,8 @@ def render_page():
                 # 展開詳細資料
                 st.markdown("---")
                 display_title = selected_option.split(" (編號:")[0]
-                st.subheader(f"🔍 詳細數據展開：")
+                st.subheader(f"詳細數據展開：")
                 
-                # 用美觀的卡片卡片呈現
                 with st.container(border=True):
                     col1, col2 = st.columns(2)
                     

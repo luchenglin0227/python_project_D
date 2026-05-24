@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from datetime import time, date
 
 # 定義統一的欄位映射字典
-# 目的：將 OCR 辨識出的中文欄位或手動輸入，統一轉為資料庫/程式使用的英文變數名
+# 目的：將 OCR 辨識出的中文欄位、手動輸入或衍生指標，統一與資料庫英文變數名做雙向對應
 SHOOTING_FIELD_MAP = {
     # 1. 基本資訊與關聯欄位
     "使用者編號": "user_id",
@@ -12,13 +12,13 @@ SHOOTING_FIELD_MAP = {
     "比賽時間": "match_start_time",
     "靶場": "shooting_range",
 
-    # 2. 射擊表現欄位 (OCR 辨識部分)
+    #射擊表現欄位 (OCR 辨識部分)
     "總發數": "total_shots",
     "一發命中數": "first_hit_count",
     "二發命中數": "second_hit_count",
     "失誤數": "miss_count",
 
-    # 3. 賽前生活因子欄位
+    #賽前生活因子欄位
     "入睡時間": "bedtime",
     "起床時間": "wake_up_time",
     "到場時間": "arrival_time", 
@@ -29,6 +29,15 @@ SHOOTING_FIELD_MAP = {
     "疲勞程度": "fatigue_level",
     "緊張程度": "tension_level",
     "射擊靶場": "Shooting_range",
+
+    #系統自動產生與衍生計算指標
+    "系統紀錄時間": "created_at",
+    "總命中數 (一發+二發)": "total_hits",
+    "總命中率": "hit_rate",
+    "一發命中率": "first_hit_rate",
+    "二發命中率": "second_hit_rate",
+    "失誤率": "miss_rate",
+    "計算睡眠時長 (小時)": "sleep_duration",
 }
 
 class DataProcessor:
