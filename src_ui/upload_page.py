@@ -17,7 +17,7 @@ def render_page():
         is_pdf = uploaded_file.type == "application/pdf"
 
         with st.spinner("正在執行 AI 辨識與光譜映射分析（初次讀取耗時較久，請稍候）..."):
-            img, full_text, heat_scores = process_ocr_and_heatmap(file_bytes, is_pdf)
+            img, full_text, heat_scores, ocr_conf = process_ocr_and_heatmap(file_bytes, is_pdf)
 
         col_img, col_form = st.columns([4, 6])
 
@@ -116,16 +116,18 @@ def render_page():
 
                 try:
                     processor = DataProcessor()
+                    # 加入 ocr_confidence=ocr_conf 參數，讓真實分數進入 DataFrame
                     clean_df = processor.process_record(
                         ocr_data, manual_data,
-                        raw_image_path=f"./storage/{user_id}_{record_date}.jpg"
+                        raw_image_path=f"./storage/{user_id}_{record_date}.jpg",
+                        ocr_confidence=ocr_conf  # 加上ocr_conf 
                     )
 
                     with st.spinner("正在將資料即時同步至雲端 Google Sheets..."):
                         success = database.insert_record(clean_df)
 
                     if success:
-                        st.success("🎉 資料已成功結構化，並即時同步至雲端 Google Sheets 資料庫！")
+                        st.success("資料已成功結構化，並即時同步至雲端 Google Sheets 資料庫！")
                         display_df = pd.DataFrame({
                             "欄位": clean_df.columns.tolist(),
                             "數值": [str(v) for v in clean_df.iloc[0].tolist()]

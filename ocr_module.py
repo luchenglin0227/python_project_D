@@ -15,7 +15,7 @@ reader = load_ocr()
 
 @st.cache_data(show_spinner=False)
 def process_ocr_and_heatmap(file_bytes, is_pdf):
-    """✨【記憶緩衝區】辨識過一次就會把結果牢牢記住！"""
+    """記憶緩衝區:辨識過便記住結果"""
     if is_pdf:
         img_doc = fitz.open(stream=file_bytes, filetype="pdf")
         page = img_doc.load_page(0)
@@ -24,11 +24,27 @@ def process_ocr_and_heatmap(file_bytes, is_pdf):
     else:
         img = cv2.imdecode(np.frombuffer(file_bytes, np.uint8), cv2.IMREAD_COLOR)
         
-    ocr_results = reader.readtext(img, detail=0)
-    full_text = " ".join(ocr_results)
+    # detail=1 讓 EasyOCR 吐出包含信心分數的完整結構
+    ocr_results = reader.readtext(img, detail=1)
+    
+    texts = []
+    confidences = []
+    
+    # 拆解 AI 辨識結構
+    for res in ocr_results:
+        # res 格式為: (bbox, text, confidence)
+        texts.append(res[1])
+        confidences.append(res[2])
+        
+    full_text = " ".join(texts)
+    
+    # 計算這張照片的平均 AI 信心分數（若沒抓到字則預設為 1.0）
+    avg_confidence = round(float(np.mean(confidences)), 4) if confidences else 1.0
+    
     heat_scores = analyze_heatmap_to_values(img)
     
-    return img, full_text, heat_scores
+    # 回傳信心分數（avg_confidence）
+    return img, full_text, heat_scores, avg_confidence
 
 def convert_pdf_to_img(file_bytes):
     """PDF 轉圖片邏輯"""
