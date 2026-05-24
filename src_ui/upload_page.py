@@ -73,31 +73,31 @@ def render_page():
             # 1. 基本資訊
             with st.expander("🆔 基本資訊", expanded=True):
                 c1, c2 = st.columns(2)
-                user_id = c1.text_input("user_id", value="USER_001")
-                record_date = c2.date_input("record_date", value=datetime(2026, 5, 2))
-                match_start_time = st.time_input("match_start_time", value=datetime.strptime("09:00", "%H:%M").time())
-                shooting_range = st.selectbox("Shooting_range", ["A", "B", "C"])
+                user_id = c1.text_input("使用者編號", value="USER_001")
+                record_date = c2.date_input("射擊日期", value=datetime(2026, 5, 2))
+                match_start_time = st.time_input("比賽時間", value=datetime.strptime("09:00", "%H:%M").time())
+                shooting_range = st.selectbox("靶場", ["A", "B", "C"])
 
             # 2. 生活因子
             with st.expander("🧘 生活因子與生理狀態", expanded=True):
                 c3, c4 = st.columns(2)
-                bedtime = c3.time_input("bedtime (入睡時間)", value=datetime.strptime("23:00", "%H:%M").time())
-                wake_up_time = c4.time_input("wake_up_time (起床時間)", value=datetime.strptime("07:00", "%H:%M").time())
+                bedtime = c3.time_input("入睡時間", value=datetime.strptime("23:00", "%H:%M").time())
+                wake_up_time = c4.time_input("起床時間", value=datetime.strptime("07:00", "%H:%M").time())
 
                 sleep_duration = calculate_sleep_duration(bedtime, wake_up_time)
-                st.info(f"系統自動換算 sleep_duration: {sleep_duration} 小時")
+                st.info(f"(系統自動換算)睡眠時長: {sleep_duration} 小時")
 
                 c5, c6, c7 = st.columns(3)
-                arrival_time = c5.time_input("arrival_time", value=datetime.strptime("08:30", "%H:%M").time())
-                warm_up_time = c6.number_input("warm_up_time (min)", value=20.0)
-                caffeine_intake = c7.number_input("caffeine_intake (mg)", value=100.0)
+                arrival_time = c5.time_input("到場時間", value=datetime.strptime("08:30", "%H:%M").time())
+                warm_up_time = c6.number_input("熱身時長 (min)", value=20.0)
+                caffeine_intake = c7.number_input("咖啡因攝取 (mg)", value=100.0)
 
                 c8, c9 = st.columns(2)
-                breakfast_calories = c8.number_input("breakfast_calories (kcal)", value=450.0)
-                breakfast_protein = c9.number_input("breakfast_protein (g)", value=25.0)
+                breakfast_calories = c8.number_input("早餐熱量 (kcal)", value=450.0)
+                breakfast_protein = c9.number_input("早餐蛋白質攝取量 (g)", value=25.0)
 
-                fatigue_level = st.select_slider("fatigue_level (疲勞度)", options=[1, 2, 3, 4, 5], value=2)
-                tension_level = st.select_slider("tension_level (緊張度)", options=[1, 2, 3, 4, 5], value=1)
+                fatigue_level = st.select_slider("疲勞程度", options=[1, 2, 3, 4, 5], value=2)
+                tension_level = st.select_slider("緊張程度", options=[1, 2, 3, 4, 5], value=1)
 
             # -------------------------------------------------------------
             # 核心數據串接：檢查是否有辨識好的 AI 快取數據
@@ -109,14 +109,14 @@ def render_page():
             # 3. 射擊表現 (若有快取則動態帶入，若無則顯示預設值)
             with st.expander("📊 射擊表現數據 (OCR 自動帶入)"):
                 c10, c11, c12 = st.columns(3)
-                total_shots = c10.number_input("total_shots", value=125)
-                total_hits = c11.number_input("total_hits", value=101)
-                hit_rate = c12.number_input("hit_rate (0-1)", value=0.808, format="%.3f")
+                total_shots = c10.number_input("總發數", value=125)
+                total_hits = c11.number_input("總命中數", value=101)
+                hit_rate = c12.number_input("總命中率(0-1)", value=0.808, format="%.3f")
 
                 c13, c14, c15 = st.columns(3)
-                first_hit_count = c13.number_input("first_hit_count", value=96)
-                second_hit_count = c14.number_input("second_hit_count", value=5)
-                miss_count = c15.number_input("miss_count", value=24)
+                first_hit_count = c13.number_input("一發命中數 ", value=96)
+                second_hit_count = c14.number_input("二發命中數", value=5)
+                miss_count = c15.number_input("失誤數", value=24)
 
             # 4. 空間分析矩陣
             with st.expander("🔥 空間分析矩陣 (方位命中率 %)", expanded=True):
@@ -127,9 +127,15 @@ def render_page():
                     
                 grid_cols = st.columns(3)
                 matrix_names = [
-                    "miss_left_high", "miss_middle_high", "miss_right_high",
-                    "miss_left_mid",  "miss_middle_mid",  "miss_right_mid",
-                    "miss_left_low",  "miss_middle_low",  "miss_right_low"
+                    ("左側高位命中率", "miss_left_high"), 
+                    ("中間高位命中率", "miss_middle_high"), 
+                    ("右側高位命中率", "miss_right_high"),
+                    ("左側中位命中率", "miss_left_mid"),  
+                    ("正中間命中率", "miss_middle_mid"),  
+                    ("右側中位命中率", "miss_right_mid"),
+                    ("左側低位命中率", "miss_left_low"),  
+                    ("中間低位命中率", "miss_middle_low"),  
+                    ("右側低位命中率", "miss_right_low")
                 ]
 
                 matrix_values = {}

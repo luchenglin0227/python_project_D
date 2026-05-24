@@ -39,15 +39,15 @@ SHOOTING_FIELD_MAP = {
     "計算睡眠時長 (小時)": "sleep_duration",
 
     #空間分析矩陣欄位
-    "左側高位脫靶數": "miss_left_high",
-    "中間高位脫靶數": "miss_middle_high",
-    "右側高位脫靶數": "miss_right_high",
-    "左側中位脫靶數": "miss_left_mid",
-    "正中間脫靶數": "miss_middle_mid",
-    "右側中位脫靶數": "miss_right_mid",
-    "左側低位脫靶數": "miss_left_low",
-    "中間低位脫靶數": "miss_middle_low",
-    "右側低位脫靶數": "miss_right_low",
+    "左側高位命中率": "miss_left_high",
+    "中間高位命中率": "miss_middle_high",
+    "右側高位命中率": "miss_right_high",
+    "左側中位命中率": "miss_left_mid",
+    "正中間命中率": "miss_middle_mid",
+    "右側中位命中率": "miss_right_mid",
+    "左側低位命中率": "miss_left_low",
+    "中間低位命中率": "miss_middle_low",
+    "右側低位命中率": "miss_right_low",
 
     #系統管理欄位 
     "原始圖片存檔路徑": "raw_image_path",
@@ -198,51 +198,3 @@ class DataProcessor:
                 df[col] = df[col].apply(lambda x: str(x) if hasattr(x, 'strftime') else x)
 
         return df
-
-
-# 主程式區塊：供本地測試用
-if __name__ == "__main__":
-    processor = DataProcessor()
-
-    # 基礎手動輸入資料範例
-    base_manual = {
-        "使用者編號": "U101",
-        "射擊日期": date(2026, 5, 14),
-        "比賽時間": time(10, 30),
-        "靶場": "大安靶場",
-        "入睡時間": time(23, 0), 
-        "起床時間": time(7, 0), 
-        "到場時間": time(9, 0), 
-        "疲勞程度": 2, 
-        "緊張程度": 3,
-        "熱身時長": 15.0,
-        "早餐熱量": 450.0,
-        "蛋白質": 25.0,
-        "咖啡因攝取": 80.0
-    }
-
-    # 模擬 3x3 矩陣脫靶數據
-    sample_heatmap = [[1, 0, 2], [0, 1, 0], [3, 0, 1]]
-
-    # 範例 A：正常資料清洗測試
-    print("\n=== [測試 A：全新規範變數轉換驗證] ===")
-    ocr_a = {
-        "總發數": "50", 
-        "一發命中數": "37", 
-        "二發命中數": "8", 
-        "失誤數": "5",
-        "heatmap_matrix": sample_heatmap
-    }
-    
-    df_a = processor.process_record(
-        ocr_a, 
-        base_manual, 
-        raw_image_path="/images/shot_001.png", 
-        ocr_confidence=0.98
-    )
-    
-    print(f"使用者 ID: {df_a.iloc[0]['user_id']} | 紀錄日期: {df_a.iloc[0]['record_date']}")
-    print(f"系統換算睡眠時長 (sleep_duration): {df_a.iloc[0]['sleep_duration']} 小時")
-    print(f"總命中數 (total_hits): {df_a.iloc[0]['total_hits']} | 總命中率 (hit_rate): {df_a.iloc[0]['hit_rate']:.2f}")
-    print(f"空間分析 (正中間脫靶 miss_middle_mid): {df_a.iloc[0]['miss_middle_mid']}")
-    print(f"圖片路徑 (raw_image_path): {df_a.iloc[0]['raw_image_path']} (信心值: {df_a.iloc[0]['ocr_confidence']})")
