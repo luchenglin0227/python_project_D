@@ -1,4 +1,3 @@
-# src_ui/analysis_page.py
 import streamlit as st
 import pandas as pd
 import database
@@ -27,8 +26,9 @@ def render_page():
                 
                 # 💡 之後可以直接在這邊底下畫折線圖/搜尋功能
                 st.dataframe(history_df, use_container_width=True, height=400)
-    else:
+            else:
                 st.warning("📭 雲端目前沒有任何紀錄。")
+                
         except Exception as e:
             st.error(f"❌ 無法讀取歷史紀錄：{e}")
             
