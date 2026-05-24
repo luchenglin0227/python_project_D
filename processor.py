@@ -6,7 +6,7 @@ from datetime import time, date
 # 定義統一的欄位映射字典
 # 目的：將 OCR 辨識出的中文欄位、手動輸入或衍生指標，統一與資料庫英文變數名做雙向對應
 SHOOTING_FIELD_MAP = {
-    # 1. 基本資訊與關聯欄位
+   #基本資訊與關聯欄位
     "使用者編號": "user_id",
     "射擊日期": "record_date",
     "比賽時間": "match_start_time",
@@ -18,7 +18,7 @@ SHOOTING_FIELD_MAP = {
     "二發命中數": "second_hit_count",
     "失誤數": "miss_count",
 
-    #賽前生活因子欄位
+    #生活因子欄位
     "入睡時間": "bedtime",
     "起床時間": "wake_up_time",
     "到場時間": "arrival_time", 
@@ -30,14 +30,29 @@ SHOOTING_FIELD_MAP = {
     "緊張程度": "tension_level",
     "射擊靶場": "Shooting_range",
 
-    #系統自動產生與衍生計算指標
-    "系統紀錄時間": "created_at",
+    #計算指標
     "總命中數 (一發+二發)": "total_hits",
     "總命中率": "hit_rate",
     "一發命中率": "first_hit_rate",
     "二發命中率": "second_hit_rate",
     "失誤率": "miss_rate",
     "計算睡眠時長 (小時)": "sleep_duration",
+
+    #空間分析矩陣欄位
+    "左側高位脫靶數": "miss_left_high",
+    "中間高位脫靶數": "miss_middle_high",
+    "右側高位脫靶數": "miss_right_high",
+    "左側中位脫靶數": "miss_left_mid",
+    "正中間脫靶數": "miss_middle_mid",
+    "右側中位脫靶數": "miss_right_mid",
+    "左側低位脫靶數": "miss_left_low",
+    "中間低位脫靶數": "miss_middle_low",
+    "右側低位脫靶數": "miss_right_low",
+
+    #系統管理欄位 
+    "原始圖片存檔路徑": "raw_image_path",
+    "OCR 辨識信心分數": "ocr_confidence",
+    "系統紀錄時間": "created_at",
 }
 
 class DataProcessor:
