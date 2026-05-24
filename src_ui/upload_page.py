@@ -42,14 +42,8 @@ def render_page():
                 else:
                     st.image(file_bytes, caption="已上傳的成績單圖片", use_container_width=True)
                     st.markdown("---")
-            # 📌「上傳當日照片」功能
-            athlete_photo = st.file_uploader(
-                "📸 上傳當日選手照片 (選填)",
-                type=["jpg", "png", "jpeg"]
-            )
-            if athlete_photo:
-                st.image(athlete_photo, caption="當日選手照片預覽", width=300)      
-            else:
+                
+                else:
                 # 若已經辨識成功，則顯示 AI 處理過的圖片
                 cached_img = st.session_state["ocr_result_cache"]["img"]
                 st.image(cv2.cvtColor(cached_img, cv2.COLOR_BGR2RGB), caption="AI 光譜軌跡分析圖", use_container_width=True)
