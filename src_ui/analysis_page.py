@@ -25,7 +25,11 @@ def render_page():
                 raw_df = database.load_records()
                 
             if raw_df is not None:
-                st.metric(label="📊 目前已累積總筆數", value=f"{len(raw_df)} 筆" if not raw_df.empty else "0 筆")
+                # 取得總筆數（若空表格則為 0）
+                total_count = len(raw_df) if not raw_df.empty else 0
+                
+                # 用提示框呈現
+                st.info(f"📊 **目前已累積總筆數**：` {total_count} ` 筆")
                 
                 # 建立反向對映表（從英文變數名稱轉回中文）
                 reverse_map = {v: k for k, v in SHOOTING_FIELD_MAP.items()}
