@@ -169,6 +169,54 @@ def render_page():
                             for key, val in items[mid:]:
                                 if str(key).lower() in ['index', 'id']: continue
                                 st.write(f"**📌 {key}** : `{val}`")
+                        # ==========================================
+                        # 進階數據交叉分析 
+                        # ==========================================
+                        st.markdown("---")
+                        st.subheader(" 進階交叉分析 (生活作息 vs 射擊表現)")
+                        st.caption("分析全隊選手的賽前生理與心理狀態，如何影響最終的射擊命中率。")
+                        
+                        # 複製一份原始資料來畫圖
+                        df_analysis = raw_df.copy()
+    
+                        ana_col1, ana_col2 = st.columns(2)
+    
+                        # 1. 睡眠時長 vs 命中率 (折線圖)
+                        with ana_col1:
+                            st.write("** 睡眠時長 vs 平均命中率 (%)**")
+                            # 檢查欄位是否存在
+                            if 'sleep_duration' in df_analysis.columns and 'hit_rate' in df_analysis.columns:
+                                # 確保資料型態為數字，並將睡眠時間四捨五入分群
+                                df_analysis['sleep_duration'] = pd.to_numeric(df_analysis['sleep_duration'], errors='coerce')
+                                df_analysis['sleep_group'] = df_analysis['sleep_duration'].round()
+                                
+                                # 確保命中率換算為百分比
+                                hit_data = pd.to_numeric(df_analysis['hit_rate'], errors='coerce')
+                                if hit_data.mean() <= 1.0:
+                                    hit_data = hit_data * 100
+                                df_analysis['hit_rate_pct'] = hit_data
+                                
+                                # 畫出折線圖
+                                sleep_trend = df_analysis.groupby('sleep_group')['hit_rate_pct'].mean()
+                                st.line_chart(sleep_trend)
+                            else:
+                                st.info("💡 雲端資料庫累積更多睡眠數據後將自動顯示圖表。")
+    
+                        # 2. 緊張程度 vs 失誤率 (長條圖)
+                        with ana_col2:
+                            st.write("**賽前緊張程度 vs 平均失誤率 (%)**")
+                            if 'tension_level' in df_analysis.columns and 'miss_rate' in df_analysis.columns:
+                                df_analysis['tension_level'] = pd.to_numeric(df_analysis['tension_level'], errors='coerce')
+                                
+                                miss_data = pd.to_numeric(df_analysis['miss_rate'], errors='coerce')
+                                if miss_data.mean() <= 1.0:
+                                    miss_data = miss_data * 100
+                                df_analysis['miss_rate_pct'] = miss_data
+                                
+                                tension_trend = df_analysis.groupby('tension_level')['miss_rate_pct'].mean()
+                                st.bar_chart(tension_trend)
+                            else:
+                                st.info("💡 雲端資料庫累積更多緊張程度數據後將自動顯示圖表。")
                 else:
                     st.warning("📭 雲端目前沒有任何紀錄。")
                 
