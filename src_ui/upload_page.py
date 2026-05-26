@@ -102,18 +102,17 @@ def render_page():
             with st.expander("📊 射擊表現數據 (OCR 自動帶入)"):
                 c10, c11, c12 = st.columns(3)
                 total_shots = c10.number_input("總發數", value=125)
-                total_hits = c11.number_input("總命中數", value=101)
-                hit_rate = c12.number_input("總命中率(0-1)", value=0.808, format="%.3f")
+                total_hits = c11.number_input("總命中數", value=100)
+                hit_rate = c12.number_input("總命中率(0-1)", value=0.80, format="%.3f")
 
                 c13, c14, c15 = st.columns(3)
-                first_hit_count = c13.number_input("一發命中數 ", value=96)
-                second_hit_count = c14.number_input("二發命中數", value=5)
-                miss_count = c15.number_input("失誤數", value=24)
+                first_hit_count = c13.number_input("一發命中數 ", value=100)
+                second_hit_count = c14.number_input("二發命中數", value=10)
+                miss_count = c15.number_input("失誤數", value=15)
 
            # 4. 空間分析矩陣
             with st.expander("🔥 空間分析矩陣 (方位命中率 %)", expanded=True):
                 if has_cache:
-                    # 移除提示文字中的信心分數顯示
                     st.success("✅ 已成功帶入 AI 換算數據！")
                 else:
                     st.info("💡 提示：點擊左側辨識按鈕後，此處九宮格將會自動代入分析結果。")
@@ -198,5 +197,3 @@ def render_page():
 
                 except ValueError as e:
                     st.error(f"❌ 資料驗證失敗：{e}")
-
-}
