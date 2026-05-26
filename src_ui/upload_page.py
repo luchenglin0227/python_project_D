@@ -12,7 +12,7 @@ def render_page():
     st.caption("💡 提示：上傳成績單後，系統將自動啟動 AI 影像辨識")
     st.markdown("---")
 
-    # 初始化 Session State 狀態控制鎖
+    # 📌 初始化 Session State 狀態控制鎖
     if "ocr_result_cache" not in st.session_state:
         st.session_state["ocr_result_cache"] = None
     if "last_uploaded_file_name" not in st.session_state:
@@ -20,11 +20,11 @@ def render_page():
     if "upload_success" not in st.session_state:
         st.session_state["upload_success"] = False
 
-    # 若已成功上傳並鎖定，顯示成功畫面與「上傳其他成績單」按鈕
+    # 📌 若已成功上傳並鎖定，顯示成功畫面與「上傳其他成績單」按鈕
     if st.session_state["upload_success"]:
         st.success("🎉 資料已成功結構化，並即時同步至雲端 Google Sheets！")
         
-        # 顯示剛剛上傳成功的暫存結果（若有需要引導選手確認）
+        # 顯示剛剛上傳成功的暫存結果
         if "last_clean_df" in st.session_state:
             display_df = pd.DataFrame({
                 "欄位": st.session_state["last_clean_df"].columns.tolist(),
@@ -55,8 +55,7 @@ def render_page():
         st.session_state["last_uploaded_file_name"] = uploaded_file.name
 
     col_img, col_form = st.columns([4, 6])
-
-
+    
     # =============================================================
     #  1. 自動觸發 OCR 辨識區
     # =============================================================
@@ -66,7 +65,6 @@ def render_page():
         
         with st.spinner("系統正在讀取成績單，請稍候..."):
             try:
-                # 自動執行第一次 OCR (此時 heatmap_matrix 內應為 0-100 的分數)
                 ocr_res = process_ocr_and_heatmap(file_bytes, is_pdf)
                 st.session_state["ocr_result_cache"] = ocr_res
                 st.toast("✅ AI 辨識完成！已自動換算等級並填入表單。")
@@ -74,10 +72,9 @@ def render_page():
                 st.error(f"❌ AI 自動辨識失敗，已載入預設無資料表單。錯誤: {e}")
                 st.session_state["ocr_result_cache"] = {
                     "total_shots": 0, "first_hit": 0, "second_hit": 0, "miss": 0,
-                    "heatmap_matrix": None  # 異常時預設無資料
+                    "heatmap_matrix": None
                 }
     
-    # 取得目前的數據快取
     ocr_defaults = st.session_state["ocr_result_cache"]
 
     # ============================================================
@@ -112,7 +109,7 @@ def render_page():
 
             st.markdown("---")
             
-            # B. 射擊數據 (應要求全面改為純手動輸入，初始值預設為 0)
+            # B. 射擊數據
             st.markdown("#### 📊 射擊表現數據 (請手動輸入當次數據)")
             c5, c6, c7, c8 = st.columns(4)
             total_shots = c5.number_input("總發數：", min_value=0, value=0)
@@ -126,11 +123,9 @@ def render_page():
             st.markdown("#### 🎯 九方位彈著點與命中率空間分析")
             st.caption("提示標籤顏色： :green[良好] (分數>=80) | :orange[尚可] (40~79) | :red[較差] (<40) | 無資料")
             
-            # 下拉式選單選項與對應資料庫儲存數值
             status_options = ["無資料", "較差", "尚可", "良好"]
             status_values = {"無資料": -1, "較差": 0, "尚可": 1, "良好": 2}
 
-           # 核心換算：根據 OCR 0-100 分數判定下拉選單預設 index
             default_indices = []
             for idx in range(9):
                 if ocr_defaults is None or ocr_defaults.get("heatmap_matrix") is None:
@@ -149,7 +144,6 @@ def render_page():
                     except (IndexError, ValueError, TypeError):
                         default_indices.append(0)
 
-            # 排版九宮格選單
             h_col1, h_col2, h_col3 = st.columns(3)
             
             with h_col1:
@@ -165,7 +159,6 @@ def render_page():
                 v5 = h_col3.selectbox("右中 (Mid Right)", status_options, index=default_indices[5])
                 v8 = h_col3.selectbox("右下 (Low Right)", status_options, index=default_indices[8])
 
-            # 轉換為要存入 Google Sheet 的數字矩陣 [-1, 0, 1, 2]
             updated_matrix = [
                 status_values[v0], status_values[v1], status_values[v2],
                 status_values[v3], status_values[v4], status_values[v5],
@@ -182,11 +175,11 @@ def render_page():
             wake_up_time = c10.time_input("起床時間：", value=datetime.strptime("07:00", "%H:%M").time())
 
             sleep_duration = calculate_sleep_duration(bedtime, wake_up_time)
-            st.info(f" (系統自動換算) 當日睡眠時長: {sleep_duration} 小時")
+            st.info(f"⏳ (系統自動換算) 當日睡眠時長: {sleep_duration} 小時")
 
             c11, c12 = st.columns(2)
             arrival_time = c11.time_input("到場時間：",  value=datetime.strptime("08:30", "%H:%M").time())
-            warm_up_time = c12.number_input("熱身時長 (min)",min_value=0, value=20)
+            warm_up_time = c12.number_input("熱身時長 (min)", min_value=0, value=20)
 
             c13, c14, c15 = st.columns(3)
             breakfast_calories = c13.number_input("早餐總熱量 (kcal)：", min_value=0, value=450)
@@ -195,45 +188,52 @@ def render_page():
             
             c16, c17 = st.columns(2)
             fatigue_level = c16.select_slider("疲勞程度", options=[1, 2, 3, 4, 5], value=1)
-            tension_level = c17.select_slider("緊張程度",  options=[1, 2, 3, 4, 5], value=1)
+            tension_level = c17.select_slider("緊張程度", options=[1, 2, 3, 4, 5], value=1)
+
+            st.markdown("---")
+            # 📌 【新增防誤觸安全鎖 Checkbox】
+            confirm_lock = st.checkbox("🚨 我已確認以上輸入數據皆正確無誤", value=False)
 
             submit_btn = st.form_submit_button("💾 結構化並上傳雲端資料庫")
+
         # =============================================================
         #  4. 後端資料儲存與串接
         # =============================================================
         if submit_btn:
-            #對齊 processor.py 內的對照表
-            final_shooting_data = {
-                "總發數": total_shots,
-                "一發命中數": first_hit,
-                "二發命中數": second_hit,
-                "失誤數": miss_count,
-                "heatmap_matrix": updated_matrix  # 1D 陣列，processor.py 的 flatten 可以完美接收
-            }
-            
-            manual_life_data = {
-                "使用者編號": user_id, "射擊日期": record_date, "比賽時間": match_start_time, "靶場": shooting_range,
-                "入睡時間": bedtime, "起床時間": wake_up_time, "到場時間": arrival_time, "熱身時長": warm_up_time,
-                "早餐熱量": breakfast_calories, "蛋白質": breakfast_protein, "咖啡因攝取": caffeine_intake,
-                "疲勞程度": fatigue_level, "緊張程度": tension_level,"睡眠時長 (小時)": sleep_duration
-            }
+            # 📌 【安全鎖驗證】如果使用者沒勾選確認框，直接攔截並提示，不執行後續儲存
+            if not confirm_lock:
+                st.error("🛑 上傳失敗：請先勾選下方的「我已確認以上輸入數據皆正確無誤」核取方塊！")
+            else:
+                final_shooting_data = {
+                    "總發數": total_shots,
+                    "一發命中數": first_hit,
+                    "二發命中數": second_hit,
+                    "失誤數": miss_count,
+                    "heatmap_matrix": updated_matrix
+                }
+                
+                manual_life_data = {
+                    "使用者編號": user_id, "射擊日期": record_date, "比賽時間": match_start_time, "靶場": shooting_range,
+                    "入睡時間": bedtime, "起床時間": wake_up_time, "到場時間": arrival_time, "熱身時長": warm_up_time,
+                    "早餐熱量": breakfast_calories, "蛋白質": breakfast_protein, "咖啡因攝取": caffeine_intake,
+                    "疲勞程度": fatigue_level, "緊張程度": tension_level, "睡眠時長 (小時)": sleep_duration
+                }
 
-            try:
-                processor = DataProcessor()
-                clean_df = processor.process_record(
-                    final_shooting_data, manual_life_data,
-                    raw_image_path=f"./storage/{user_id}_{record_date}.jpg"
-                )
+                try:
+                    processor = DataProcessor()
+                    clean_df = processor.process_record(
+                        final_shooting_data, manual_life_data,
+                        raw_image_path=f"./storage/{user_id}_{record_date}.jpg"
+                    )
 
-                with st.spinner("正在將資料即時同步至雲端 Google Sheets..."):
-                    success = database.insert_record(clean_df)
+                    with st.spinner("正在將資料即時同步至雲端 Google Sheets..."):
+                        success = database.insert_record(clean_df)
 
-                if success:
-                    # 📌 【修正重點 1】變更成功狀態鎖，將結果存入 session_state 供重新整理畫面使用
-                    st.session_state["upload_success"] = True
-                    st.session_state["last_clean_df"] = clean_df
-                    st.rerun()
-                else:
-                    st.error("❌ 同步到雲端時失敗，請檢查金鑰設定。")
-            except Exception as e:
-                st.error(f"❌ 資料清洗與數據換算處理發生錯誤: {e}")
+                    if success:
+                        st.session_state["upload_success"] = True
+                        st.session_state["last_clean_df"] = clean_df
+                        st.rerun()
+                    else:
+                        st.error("❌ 同步到雲端時失敗，請檢查金鑰設定。")
+                except Exception as e:
+                    st.error(f"❌ 資料清洗與數據換算處理發生錯誤: {e}")
