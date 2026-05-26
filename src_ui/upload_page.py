@@ -26,7 +26,6 @@ def render_page():
         st.session_state["last_uploaded_file_name"] = uploaded_file.name
 
     col_img, col_form = st.columns([4, 6])
-
     # =============================================================
     #  1. 自動觸發 OCR 辨識區
     # =============================================================
