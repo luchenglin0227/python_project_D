@@ -12,13 +12,42 @@ def render_page():
     st.caption("💡 提示：上傳成績單後，系統將自動啟動 AI 影像辨識")
     st.markdown("---")
 
-    uploaded_file = st.file_uploader("上傳成績單 (JPG, PNG, PDF)", type=["jpg", "png", "pdf"])
-
-    # 建立 Session State 暫存 OCR 結果與上傳狀態
+    # 初始化 Session State 狀態控制鎖
     if "ocr_result_cache" not in st.session_state:
         st.session_state["ocr_result_cache"] = None
     if "last_uploaded_file_name" not in st.session_state:
         st.session_state["last_uploaded_file_name"] = None
+    if "upload_success" not in st.session_state:
+        st.session_state["upload_success"] = False
+
+    # 若已成功上傳並鎖定，顯示成功畫面與「上傳其他成績單」按鈕
+    if st.session_state["upload_success"]:
+        st.success("🎉 資料已成功結構化，並即時同步至雲端 Google Sheets！")
+        
+        # 顯示剛剛上傳成功的暫存結果（若有需要引導選手確認）
+        if "last_clean_df" in st.session_state:
+            display_df = pd.DataFrame({
+                "欄位": st.session_state["last_clean_df"].columns.tolist(),
+                "數值": [str(v) for v in st.session_state["last_clean_df"].iloc[0].tolist()]
+            })
+            st.dataframe(display_df, height=300)
+
+        st.markdown("---")
+        # 提供重新上傳按鈕，點擊後回到預設模式
+        if st.button("🔄 上傳其他成績單", type="primary"):
+            st.session_state["ocr_result_cache"] = None
+            st.session_state["last_uploaded_file_name"] = None
+            st.session_state["upload_success"] = False
+            if "last_clean_df" in st.session_state:
+                del st.session_state["last_clean_df"]
+            st.rerun()
+            
+        return # 中斷後續渲染，鎖定畫面
+
+    # =============================================================
+    #  標準模式：允許填寫與上傳
+    # =============================================================
+    uploaded_file = st.file_uploader("上傳成績單 (JPG, PNG, PDF)", type=["jpg", "png", "pdf"])
 
     # 當使用者更換檔案上傳時，自動重置快取，確保重新觸發辨識
     if uploaded_file and st.session_state["last_uploaded_file_name"] != uploaded_file.name:
@@ -26,6 +55,8 @@ def render_page():
         st.session_state["last_uploaded_file_name"] = uploaded_file.name
 
     col_img, col_form = st.columns([4, 6])
+
+
     # =============================================================
     #  1. 自動觸發 OCR 辨識區
     # =============================================================
@@ -151,7 +182,7 @@ def render_page():
             wake_up_time = c10.time_input("起床時間：", value=datetime.strptime("07:00", "%H:%M").time())
 
             sleep_duration = calculate_sleep_duration(bedtime, wake_up_time)
-            st.info(f"(系統自動換算)睡眠時長: {sleep_duration} 小時")
+            st.info(f" (系統自動換算) 當日睡眠時長: {sleep_duration} 小時")
 
             c11, c12 = st.columns(2)
             arrival_time = c11.time_input("到場時間：",  value=datetime.strptime("08:30", "%H:%M").time())
@@ -184,7 +215,7 @@ def render_page():
                 "使用者編號": user_id, "射擊日期": record_date, "比賽時間": match_start_time, "靶場": shooting_range,
                 "入睡時間": bedtime, "起床時間": wake_up_time, "到場時間": arrival_time, "熱身時長": warm_up_time,
                 "早餐熱量": breakfast_calories, "蛋白質": breakfast_protein, "咖啡因攝取": caffeine_intake,
-                "疲勞程度": fatigue_level, "緊張程度": tension_level,
+                "疲勞程度": fatigue_level, "緊張程度": tension_level,"睡眠時長 (小時)": sleep_duration
             }
 
             try:
@@ -198,17 +229,10 @@ def render_page():
                     success = database.insert_record(clean_df)
 
                 if success:
-                    st.success("🎉 資料已成功結構化，並即時同步至雲端 Google Sheets！")
-                    
-                    # 呈現畫面上傳後的結果
-                    display_df = pd.DataFrame({
-                        "欄位": clean_df.columns.tolist(),
-                        "數值": [str(v) for v in clean_df.iloc[0].tolist()]
-                    })
-                    st.dataframe(display_df, height=400)
-                    
-                    # 清除快取，釋放資源
-                    st.session_state["ocr_result_cache"] = None
+                    # 📌 【修正重點 1】變更成功狀態鎖，將結果存入 session_state 供重新整理畫面使用
+                    st.session_state["upload_success"] = True
+                    st.session_state["last_clean_df"] = clean_df
+                    st.rerun()
                 else:
                     st.error("❌ 同步到雲端時失敗，請檢查金鑰設定。")
             except Exception as e:
