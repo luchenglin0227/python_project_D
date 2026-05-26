@@ -1,7 +1,6 @@
-# app.py (主程式入口)
 import streamlit as st
 
-#  從 src_ui 引入兩個分頁設計
+# 從 src_ui 引入兩個分頁設計
 from src_ui import upload_page, analysis_page
 
 # 基本設定 
