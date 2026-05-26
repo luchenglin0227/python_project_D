@@ -157,10 +157,12 @@ def render_page():
             arrival_time = c11.time_input("到場時間：",  value=datetime.strptime("08:30", "%H:%M").time())
             warm_up_time = c12.number_input("熱身時長 (min)",min_value=0, value=20)
 
-            c13, c14, c15, c16, c17 = st.columns(5)
+            c13, c14, c15 = st.columns(3)
             breakfast_calories = c13.number_input("早餐總熱量 (kcal)：", min_value=0, value=450)
             breakfast_protein = c14.number_input("早餐蛋白質攝取量 (g)", min_value=0.0, value=25.0)
             caffeine_intake = c15.number_input("咖啡因攝取 (mg)", min_value=0.0, value=100.0)
+            
+            c16, c17 = st.columns(2)
             fatigue_level = c16.select_slider("疲勞程度", options=[1, 2, 3, 4, 5], value=1)
             tension_level = c17.slider("緊張程度",  options=[1, 2, 3, 4, 5], value=1)
 
