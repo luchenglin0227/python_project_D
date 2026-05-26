@@ -52,6 +52,7 @@ def render_page():
         st.session_state["ocr_result_cache"] = None
         st.session_state["last_uploaded_file_name"] = uploaded_file.name
 
+    # 📌 建立左右大佈局：左側預覽、右側填寫表單
     col_img, col_form = st.columns([4, 6])
     
     # =============================================================
@@ -94,7 +95,7 @@ def render_page():
     with col_form:
         st.subheader("數據校正與每日作息填寫")
         
-        # ── 🌙 選手睡眠時間動態換算區（獨立表單外） ──
+        # ── 🌙 選手睡眠時間動態換算區（獨立表單外，必須掛在 col_form 容器下） ──
         st.markdown("#### 🌙 選手睡眠時間動態換算")
         c_sleep1, c_sleep2 = st.columns(2)
         bedtime = c_sleep1.time_input("請選擇入睡時間：", value=datetime.strptime("23:00", "%H:%M").time())
@@ -104,5 +105,153 @@ def render_page():
         st.info(f"⏳ (系統自動換算) 當日睡眠時長: {sleep_duration} 小時")
         st.markdown("---")
 
-        # ── 📊 射擊表現數據手動輸入與即時計算區（💡 移到表單外以支援即時聯動） ──
-        st.markdown
+        # ── 📊 射擊表現數據手動輸入與即時計算區（獨立表單外，必須掛在 col_form 容器下） ──
+        st.markdown("#### 📊 射擊表現數據 (手動輸入與即時數據分析)")
+        c5, c6, c7, c8 = st.columns(4)
+        total_shots = c5.number_input("總發數：", min_value=0, value=0)
+        first_hit = c6.number_input("一發命中數：", min_value=0, value=0)
+        second_hit = c7.number_input("二發命中數：", min_value=0, value=0)
+        miss_count = c8.number_input("失誤數：", min_value=0, value=0)
+
+        # 背景即時換算機率
+        if total_shots > 0:
+            total_hits = first_hit + second_hit
+            calc_hit_rate = total_hits / total_shots
+            calc_first_hit_rate = first_hit / total_shots
+            calc_miss_rate = miss_count / total_shots
+        else:
+            calc_hit_rate = 0.0
+            calc_first_hit_rate = 0.0
+            calc_miss_rate = 0.0
+
+        # 用大字級 KPI 即時看板呈現
+        rate_col1, rate_col2, rate_col3 = st.columns(3)
+        rate_col1.metric("🎯 即時總命中率", f"{calc_hit_rate:.1%}")
+        rate_col2.metric("⚡ 一發命中率", f"{calc_first_hit_rate:.1%}")
+        rate_col3.metric("❌ 即時失誤率", f"{calc_miss_rate:.1%}")
+        st.markdown("---")
+
+        # ── 📝 主要表單區（只包裹不需要即時跨元件聯動的下拉選單、滑桿與安全鎖） ──
+        with st.form("shooting_form"):
+            # A. 基本資訊
+            st.markdown("#### 基本資訊")
+            c1, c2 = st.columns(2)
+            user_id = c1.text_input("選手：", value="User_01")
+            record_date = c2.date_input("射擊日期：", datetime.now())
+            
+            c3, c4 = st.columns(2)
+            match_start_time = c3.time_input("訓練/比賽開始時間：", datetime.now().time())
+            shooting_range = c4.selectbox("射擊靶場：", ["A", "B", "C"])
+
+            st.markdown("---")
+            
+            # C. 九方位空間命中率 
+            st.markdown("#### 🎯 九方位彈著點與命中率空間分析")
+            st.caption("提示標籤顏色： :green[良好] (分數>=80) | :orange[尚可] (40~79) | :red[較差] (<40) | 無資料")
+            
+            status_options = ["無資料", "較差", "尚可", "良好"]
+            status_values = {"無資料": -1, "較差": 0, "尚可": 1, "良好": 2}
+
+            default_indices = []
+            for idx in range(9):
+                if ocr_defaults is None or ocr_defaults.get("heatmap_matrix") is None:
+                    default_indices.append(0)
+                else:
+                    try:
+                        score = float(ocr_defaults["heatmap_matrix"][idx])
+                        if score == -1:
+                            default_indices.append(0)
+                        elif score >= 80.0:
+                            default_indices.append(3)
+                        elif score >= 40.0:
+                            default_indices.append(2)
+                        else:
+                            default_indices.append(1)
+                    except (IndexError, ValueError, TypeError):
+                        default_indices.append(0)
+
+            h_col1, h_col2, h_col3 = st.columns(3)
+            
+            with h_col1:
+                v0 = h_col1.selectbox("左上 (High Left)", status_options, index=default_indices[0])
+                v3 = h_col1.selectbox("左中 (Mid Left)", status_options, index=default_indices[3])
+                v6 = h_col1.selectbox("左下 (Low Left)", status_options, index=default_indices[6])
+            with h_col2:
+                v1 = h_col2.selectbox("中上 (High Center)", status_options, index=default_indices[1])
+                v4 = h_col2.selectbox("正中 (Center)", status_options, index=default_indices[4])
+                v7 = h_col2.selectbox("中下 (Low Center)", status_options, index=default_indices[7])
+            with h_col3:
+                v2 = h_col3.selectbox("右上 (High Right)", status_options, index=default_indices[2])
+                v5 = h_col3.selectbox("右中 (Mid Right)", status_options, index=default_indices[5])
+                v8 = h_col3.selectbox("右下 (Low Right)", status_options, index=default_indices[8])
+
+            updated_matrix = [
+                status_values[v0], status_values[v1], status_values[v2],
+                status_values[v3], status_values[v4], status_values[v5],
+                status_values[v6], status_values[v7], status_values[v8]
+            ]
+
+            st.markdown("---")
+            
+            # D. 日常生活因子
+            st.markdown("#### 🌙 其他日常因子紀錄")
+
+            c11, c12 = st.columns(2)
+            arrival_time = c11.time_input("到場時間：",  value=datetime.strptime("08:30", "%H:%M").time())
+            warm_up_time = c12.number_input("熱身時長 (min)", min_value=0, value=20)
+
+            c13, c14, c15 = st.columns(3)
+            breakfast_calories = c13.number_input("早餐總熱量 (kcal)：", min_value=0, value=450)
+            breakfast_protein = c14.number_input("早餐蛋白質攝取量 (g)", min_value=0.0, value=25.0)
+            caffeine_intake = c15.number_input("咖啡因攝取 (mg)", min_value=0.0, value=100.0)
+            
+            c16, c17 = st.columns(2)
+            fatigue_level = c16.select_slider("疲勞程度", options=[1, 2, 3, 4, 5], value=1)
+            tension_level = c17.select_slider("緊張程度", options=[1, 2, 3, 4, 5], value=1)
+
+            st.markdown("---")
+            # 防誤觸安全鎖 Checkbox
+            confirm_lock = st.checkbox("🚨 我已確認以上輸入數據皆正確無誤", value=False)
+
+            submit_btn = st.form_submit_button("💾 結構化並上傳雲端資料庫")
+
+        # =============================================================
+        #  4. 後端資料儲存與串接（注意：此處與 st.form 齊平）
+        # =============================================================
+        if submit_btn:
+            if not confirm_lock:
+                st.error("🛑 上傳失敗：請先勾選下方的「我已確認以上輸入數據皆正確無誤」核取方塊！")
+            else:
+                final_shooting_data = {
+                    "總發數": total_shots,
+                    "一發命中數": first_hit,
+                    "二發命中數": second_hit,
+                    "失誤數": miss_count,
+                    "heatmap_matrix": updated_matrix
+                }
+                
+                manual_life_data = {
+                    "使用者編號": user_id, "射擊日期": record_date, "比賽時間": match_start_time, "靶場": shooting_range,
+                    "入睡時間": bedtime, "起床時間": wake_up_time, "到場時間": arrival_time, "熱身時長": warm_up_time,
+                    "早餐熱量": breakfast_calories, "蛋白質": breakfast_protein, "咖啡因攝取": caffeine_intake,
+                    "疲勞程度": fatigue_level, "緊張程度": tension_level, "計算睡眠時長 (小時)": sleep_duration
+                }
+
+                try:
+                    processor = DataProcessor()
+                    clean_df = processor.process_record(
+                        final_shooting_data, manual_life_data,
+                        raw_image_path=f"./storage/{user_id}_{record_date}.jpg"
+                    )
+
+                    with st.spinner("正在將資料即時同步至雲端 Google Sheets..."):
+                        success = database.insert_record(clean_df)
+
+                    if success:
+                        st.session_state["upload_success"] = True
+                        st.session_state["last_clean_df"] = clean_df
+                        st.rerun()
+                    else:
+                        st.error("❌ 同步到雲端時失敗，請檢查金鑰設定。")
+                except Exception as e:
+                    st.error(f"❌ 資料清洗與數據換算處理發生錯誤: {e}")
