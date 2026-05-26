@@ -43,7 +43,7 @@ def render_page():
                     st.image(file_bytes, caption="已上傳的成績單圖片", use_container_width=True)
                     st.markdown("---")
                 
-                else:
+            else:
                 # 若已經辨識成功，則顯示 AI 處理過的圖片
                 cached_img = st.session_state["ocr_result_cache"]["img"]
                 st.image(cv2.cvtColor(cached_img, cv2.COLOR_BGR2RGB), caption="AI 光譜軌跡分析圖", use_container_width=True)
