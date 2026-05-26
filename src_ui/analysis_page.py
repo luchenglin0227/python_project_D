@@ -1,3 +1,4 @@
+# src_ui/analysis_page.py
 import streamlit as st
 import pandas as pd
 import database
@@ -192,7 +193,7 @@ def render_page():
                         st.info(f"💡 該選手目前尚無足夠的命中率數據生成歷史趨勢圖。")
                     
                     # =============================================================
-                    # 📌 5. 個人生活作息交叉分析 (已鎖定特定選手資料)
+                    # 📌 5. 個人生活作息交叉分析
                     # =============================================================
                     st.markdown("---")
                     st.subheader("進階交叉分析 (生活作息 vs 射擊表現)")
@@ -202,7 +203,7 @@ def render_page():
     
                     # 1. 睡眠時長 vs 命中率 (折線圖)
                     with ana_col1:
-                        st.write("**睡眠時長 vs 平均命中率 (%)**")
+                        st.write("**🌙 睡眠時長 vs 平均命中率 (%)**")
                         if 'sleep_duration' in user_raw_df.columns and 'hit_rate' in user_raw_df.columns:
                             user_raw_df['sleep_duration'] = pd.to_numeric(user_raw_df['sleep_duration'], errors='coerce')
                             user_raw_df['sleep_group'] = user_raw_df['sleep_duration'].round()
@@ -219,26 +220,8 @@ def render_page():
     
                     # 2. 緊張程度 vs 失誤率 (長條圖)
                     with ana_col2:
-                        st.write("**賽前緊張程度 vs 平均失誤率 (%)**")
+                        st.write("**⚡ 賽前緊張程度 vs 平均失誤率 (%)**")
                         if 'tension_level' in user_raw_df.columns and 'miss_rate' in user_raw_df.columns:
                             user_raw_df['tension_level'] = pd.to_numeric(user_raw_df['tension_level'], errors='coerce')
                             
-                            miss_data = pd.to_numeric(user_raw_df['miss_rate'], errors='coerce')
-                            if miss_data.mean() <= 1.0:
-                                miss_data = miss_data * 100
-                            user_raw_df['miss_rate_pct'] = miss_data
-                            
-                            tension_trend = user_raw_df.groupby('tension_level')['miss_rate_pct'].mean()
-                            st.bar_chart(tension_trend)
-                        else:
-                            st.info("💡 雲端資料庫累積更多緊張程度數據後將自動顯示圖表。")
-                else:
-                    st.warning("📭 雲端目前沒有任何紀錄。")
-                
-        except Exception as e:
-            st.error(f"❌ 無法讀取歷史紀錄：{e}")
-            
-    elif admin_password == "":
-        st.warning("🔑 請輸入密碼以解鎖選手歷程數據。")
-    else:
-        st.error("❌ 密碼錯誤！您沒有存取歷史數據的權限。")
+                            miss_data = pd.to_numeric(user_raw_df
