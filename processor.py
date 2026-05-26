@@ -4,7 +4,6 @@ from datetime import datetime, timedelta
 from datetime import time, date
 
 # 定義統一的欄位映射字典
-# 目的：將 OCR 辨識出的中文欄位、手動輸入或衍生指標，統一與資料庫英文變數名做雙向對應
 SHOOTING_FIELD_MAP = {
    #基本資訊與關聯欄位
     "使用者編號": "user_id",
@@ -51,7 +50,7 @@ SHOOTING_FIELD_MAP = {
 
     #系統管理欄位 
     "原始圖片存檔路徑": "raw_image_path",
-    "OCR 辨識信心分數": "ocr_confidence",
+    # 這裡已刪除 OCR 辨識信心分數
     "系統紀錄時間": "created_at",
 }
 
@@ -76,31 +75,24 @@ class DataProcessor:
     def calculate_sleep(self, bedtime, wake_up_time, shoot_date):
         """
         工具方法：根據入睡時間和起床時間計算睡眠時長
-        - 回傳小時數（float），例如 7.5 代表 7 小時 30 分鐘
-        - 自動處理跨日問題（例如 23:00 入睡，07:00 起床）
         """
         wake_dt = datetime.combine(shoot_date, wake_up_time)
         bed_dt  = datetime.combine(shoot_date, bedtime)
 
-        # 跨日處理：如果入睡時間 >= 起床時間，代表是前一天入睡
         if bed_dt >= wake_dt:
             bed_dt -= timedelta(days=1)
 
         duration = wake_dt - bed_dt
         return round(duration.seconds / 3600, 2)
 
-    def process_record(self, ocr_data, manual_data, raw_image_path="", ocr_confidence=1.0):
+    def process_record(self, ocr_data, manual_data, raw_image_path=""):
         """
-        核心方法：整合所有的數據
-        - ocr_data: 來自 OCR 模組（辨識表格內容）
-        - manual_data: 來自 Streamlit 介面
-        - raw_image_path: 原始圖片路徑
-        - ocr_confidence: OCR 信心分數
+        核心方法：整合所有的數據 (已移除 ocr_confidence 參數)
         """
         # 數據合併
         raw_data = {**ocr_data, **manual_data}
 
-        # 計算睡眠時長（對應新規範欄位名稱：sleep_duration）
+        # 計算睡眠時長
         if "入睡時間" in raw_data and "起床時間" in raw_data and "射擊日期" in raw_data:
             raw_data["sleep_duration"] = self.calculate_sleep(
                 raw_data["入睡時間"],
@@ -116,13 +108,13 @@ class DataProcessor:
         # 把中文欄位名稱對應成英文
         df = df.rename(columns=self.field_map)
 
-        # 資料型別清洗：確保射擊數值都是「整數 (int)」
+        # 資料型別清洗
         cols_to_fix = ['total_shots', 'first_hit_count', 'second_hit_count', 'miss_count']
         for col in cols_to_fix:
             if col in df.columns:
                 df[col] = df[col].apply(lambda x: int(self.clean_numeric(x)))
 
-        # 初始化衍生指標欄位（確保欄位一定存在，避免模型出錯）
+        # 初始化衍生指標欄位
         df['total_hits'] = 0
         for rate_col in ['hit_rate', 'first_hit_rate', 'second_hit_rate', 'miss_rate']:
             df[rate_col] = 0.0
@@ -137,14 +129,13 @@ class DataProcessor:
             if expected != total:
                 raise ValueError(f"數字不一致：總發數={total}，一發+二發+失誤={expected}，請回頭修正")
 
-            # 根據新規範重新計算表現指標
             df['total_hits'] = df['first_hit_count'] + df['second_hit_count']
             df['hit_rate'] = df['total_hits'] / df['total_shots']
             df['first_hit_rate'] = df['first_hit_count'] / df['total_shots']
             df['second_hit_rate'] = df['second_hit_count'] / df['total_shots']
             df['miss_rate'] = df['miss_count'] / df['total_shots']
 
-        # 數值範圍驗證：疲勞程度和緊張程度應在 1-5 之間
+        # 數值範圍驗證
         for col in ['fatigue_level', 'tension_level']:
             if col in df.columns:
                 df[col] = df[col].clip(1, 5)
@@ -158,7 +149,7 @@ class DataProcessor:
                         df[col], format='%H:%M:%S', errors='coerce'
                     ).dt.time
 
-        # 4. 空間分析矩陣處理 (根據新命名規範：方位_高度)
+        # 空間分析矩陣處理
         if 'heatmap_matrix' in raw_data:
             matrix = np.array(raw_data['heatmap_matrix']).flatten()
             heatmap_cols = [
@@ -167,10 +158,8 @@ class DataProcessor:
                 'miss_left_low',    'miss_middle_low',    'miss_right_low'
             ]
             for i, col_name in enumerate(heatmap_cols):
-                # 保留 float，因為 ocr_module 傳來的是命中率（0.0 - 100.0）
                 df[col_name] = float(matrix[i]) if i < len(matrix) else 0.0
         else:
-            # 若無傳入矩陣，預設補 0
             heatmap_cols = [
                 'miss_left_high', 'miss_middle_high', 'miss_right_high',
                 'miss_left_mid', 'miss_middle_mid', 'miss_right_mid',
@@ -183,16 +172,15 @@ class DataProcessor:
         if 'sleep_duration' in df.columns:
             df['sleep_duration'] = df['sleep_duration'].apply(self.clean_numeric)
 
-        # 5. 系統管理欄位
+        # 5. 系統管理欄位 (已移除 ocr_confidence)
         df['raw_image_path'] = raw_image_path
-        df['ocr_confidence'] = float(ocr_confidence)
         df['created_at'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        # 移除 heatmap_matrix 欄位（已攤平成 9 個獨立欄位，不需要保留原始矩陣）
+        # 移除 heatmap_matrix 欄位
         if 'heatmap_matrix' in df.columns:
             df = df.drop(columns=['heatmap_matrix'])
 
-        # 把所有 time/date 物件轉成字串，避免 pyarrow 序列化失敗
+        # 把所有 time/date 物件轉成字串
         for col in df.columns:
             if df[col].dtype == object:
                 df[col] = df[col].apply(lambda x: str(x) if hasattr(x, 'strftime') else x)

@@ -1,9 +1,3 @@
-"""
-database.py — Google Sheets Cloud Interface for Trap Shooting Performance Analysis
-Implements insert_record and load_records using Streamlit GSheetsConnection.
-All columns match the clean DataFrame spec from processor.py.
-"""
-
 import pandas as pd
 import streamlit as st
 from streamlit_gsheets import GSheetsConnection

@@ -1,4 +1,3 @@
-# src_ui/upload_page.py
 import streamlit as st
 import cv2
 import pandas as pd
@@ -19,9 +18,6 @@ def render_page():
         file_bytes = uploaded_file.read()
         is_pdf = uploaded_file.type == "application/pdf"
 
-        # -------------------------------------------------------------
-        # UX 優化：初始化快取，避免右側日常因子輸入時導致 AI 辨識資料洗掉
-        # -------------------------------------------------------------
         if "ocr_result_cache" not in st.session_state:
             st.session_state["ocr_result_cache"] = None
 
@@ -33,7 +29,6 @@ def render_page():
         with col_img:
             st.subheader("成績檔案預覽")
             
-            # 若尚未辨識或正在辨識，先將原始檔案轉為預覽呈現，不用等 AI 跑完
             if st.session_state["ocr_result_cache"] is None:
                 if is_pdf:
                     from ocr_module import convert_pdf_to_img
@@ -44,22 +39,18 @@ def render_page():
                     st.markdown("---")
                 
             else:
-                # 若已經辨識成功，則顯示 AI 處理過的圖片
                 cached_img = st.session_state["ocr_result_cache"]["img"]
                 st.image(cv2.cvtColor(cached_img, cv2.COLOR_BGR2RGB), caption="AI 光譜軌跡分析圖", use_container_width=True)
 
             st.markdown("---")
-            # 將 AI 辨識做成獨立按鈕，點擊後觸發，日常因子不需要等待此步驟
             if st.button("開始執行 OCR 辨識", use_container_width=True):
                 with st.spinner("正在執行辨識與光譜映射分析，請同時填寫右側日常因子..."):
                     try:
-                        img, full_text, heat_scores, ocr_conf = process_ocr_and_heatmap(file_bytes, is_pdf)
-                        # 將 AI 吐出的所有數據寫入快取
+                        img, full_text, heat_scores = process_ocr_and_heatmap(file_bytes, is_pdf)
                         st.session_state["ocr_result_cache"] = {
                             "img": img,
                             "full_text": full_text,
-                            "heat_scores": heat_scores,
-                            "ocr_conf": ocr_conf
+                            "heat_scores": heat_scores
                         }
                         st.success("🎉 AI 影像辨識與光譜矩陣換算成功！")
                         st.rerun()
@@ -67,7 +58,7 @@ def render_page():
                         st.error(f"❌ 辨識過程中發生錯誤：{e}")
 
         # =============================================================
-        # 右側區塊：資料錄入面板（隨時可點擊、輸入，零延遲）
+        # 右側區塊：資料錄入面板
         # =============================================================
         with col_form:
             st.subheader("資料錄入面板")
@@ -102,13 +93,12 @@ def render_page():
                 tension_level = st.select_slider("緊張程度", options=[1, 2, 3, 4, 5], value=1)
 
             # -------------------------------------------------------------
-            # 核心數據串接：檢查是否有辨識好的 AI 快取數據
+            # 核心數據串接
             # -------------------------------------------------------------
             has_cache = st.session_state["ocr_result_cache"] is not None
             current_heat_scores = st.session_state["ocr_result_cache"]["heat_scores"] if has_cache else [100.0]*9
-            current_ocr_conf = st.session_state["ocr_result_cache"]["ocr_conf"] if has_cache else 1.0
 
-            # 3. 射擊表現 (若有快取則動態帶入，若無則顯示預設值)
+            # 3. 射擊表現
             with st.expander("📊 射擊表現數據 (OCR 自動帶入)"):
                 c10, c11, c12 = st.columns(3)
                 total_shots = c10.number_input("總發數", value=125)
@@ -123,13 +113,13 @@ def render_page():
            # 4. 空間分析矩陣
             with st.expander("🔥 空間分析矩陣 (方位命中率 %)", expanded=True):
                 if has_cache:
-                    st.success(f"✅ 已成功帶入 AI 換算數據！(辨識真實信心分數：{current_ocr_conf})")
+                    # 移除提示文字中的信心分數顯示
+                    st.success("✅ 已成功帶入 AI 換算數據！")
                 else:
                     st.info("💡 提示：點擊左側辨識按鈕後，此處九宮格將會自動代入分析結果。")
                     
                 grid_cols = st.columns(3)
                 
-                # 定義清晰的（顯示中文, 內部英文Key）結構
                 matrix_configs = [
                     ("左側高位命中率", "miss_left_high"), 
                     ("中間高位命中率", "miss_middle_high"), 
@@ -143,7 +133,6 @@ def render_page():
                 ]
 
                 matrix_values = {}
-                # 修正:分開處理顯示標籤 (label_zh) 與字典 key (name_en)
                 for i, (label_zh, name_en) in enumerate(matrix_configs):
                     matrix_values[name_en] = grid_cols[i % 3].number_input(
                         label_zh, min_value=0.0, max_value=100.0,
@@ -154,7 +143,6 @@ def render_page():
             # 儲存確認與同步雲端
             # =============================================================
             if st.button("💾 確認存檔", use_container_width=True):
-                # 修正：打包時使用正確的英文字串 key (name_en)
                 ocr_data = {
                     "總發數": total_shots,
                     "一發命中數": first_hit_count,
@@ -185,11 +173,9 @@ def render_page():
 
                 try:
                     processor = DataProcessor()
-                    # 傳入從快取中提取的 AI 信心分數 (current_ocr_conf)
                     clean_df = processor.process_record(
                         ocr_data, manual_data,
-                        raw_image_path=f"./storage/{user_id}_{record_date}.jpg",
-                        ocr_confidence=current_ocr_conf
+                        raw_image_path=f"./storage/{user_id}_{record_date}.jpg"
                     )
 
                     with st.spinner("正在將資料即時同步至雲端 Google Sheets..."):
@@ -203,7 +189,6 @@ def render_page():
                         })
                         st.dataframe(display_df, height=600)
                         
-                        # 儲存成功後，將快取清空，方便下一筆紀錄上傳
                         st.session_state["ocr_result_cache"] = None
                     else:
                         st.error("❌ 資料已成功結構化，但同步到雲端時失敗，請檢查網路或密鑰設定。")
@@ -213,3 +198,5 @@ def render_page():
 
                 except ValueError as e:
                     st.error(f"❌ 資料驗證失敗：{e}")
+
+}

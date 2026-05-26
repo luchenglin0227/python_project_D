@@ -24,27 +24,20 @@ def process_ocr_and_heatmap(file_bytes, is_pdf):
     else:
         img = cv2.imdecode(np.frombuffer(file_bytes, np.uint8), cv2.IMREAD_COLOR)
         
-    # detail=1 讓 EasyOCR 吐出包含信心分數的完整結構
-    ocr_results = reader.readtext(img, detail=1)
-    
+    #取文字內容
+    ocr_results = reader.readtext(img)
     texts = []
-    confidences = []
     
     # 拆解 AI 辨識結構
     for res in ocr_results:
         # res 格式為: (bbox, text, confidence)
         texts.append(res[1])
-        confidences.append(res[2])
         
     full_text = " ".join(texts)
-    
-    # 計算這張照片的平均 AI 信心分數（若沒抓到字則預設為 1.0）
-    avg_confidence = round(float(np.mean(confidences)), 4) if confidences else 1.0
-    
     heat_scores = analyze_heatmap_to_values(img)
-    
-    # 回傳信心分數（avg_confidence）
-    return img, full_text, heat_scores, avg_confidence
+
+    # 回傳參數
+    return img, full_text, heat_scores,
 
 def convert_pdf_to_img(file_bytes):
     """PDF 轉圖片邏輯"""
