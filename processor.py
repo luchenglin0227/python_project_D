@@ -27,6 +27,7 @@ SHOOTING_FIELD_MAP = {
     "咖啡因攝取": "caffeine_intake",
     "疲勞程度": "fatigue_level",
     "緊張程度": "tension_level",
+    "睡眠時長":"sleep_duration",
 
     #計算指標
     "總命中數 (一發+二發)": "total_hits",
@@ -34,7 +35,6 @@ SHOOTING_FIELD_MAP = {
     "一發命中率": "first_hit_rate",
     "二發命中率": "second_hit_rate",
     "失誤率": "miss_rate",
-    "計算睡眠時長 (小時)": "sleep_duration",
 
     #空間分析矩陣欄位
     "左側高位命中率": "miss_left_high",

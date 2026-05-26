@@ -171,9 +171,9 @@ def render_page():
 
         # 即時數據大看板
         rate_col1, rate_col2, rate_col3 = st.columns(3)
-        rate_col1.metric("🎯 即時總命中率", f"{calc_hit_rate:.1%}")
+        rate_col1.metric("🎯 總命中率", f"{calc_hit_rate:.1%}")
         rate_col2.metric("⚡ 一發命中率", f"{calc_first_hit_rate:.1%}")
-        rate_col3.metric("❌ 即時失誤率", f"{calc_miss_rate:.1%}")
+        rate_col3.metric("❌ 失誤率", f"{calc_miss_rate:.1%}")
         st.markdown("---")
 
         # ── 第四區塊：睡眠時間 + 日常生活因子紀錄 ──
@@ -228,7 +228,7 @@ def render_page():
                     "使用者編號": user_id, "射擊日期": record_date, "比賽時間": match_start_time, "靶場": shooting_range,
                     "入睡時間": bedtime, "起床時間": wake_up_time, "到場時間": arrival_time, "熱身時長": warm_up_time,
                     "早餐熱量": breakfast_calories, "蛋白質": breakfast_protein, "咖啡因攝取": caffeine_intake,
-                    "疲勞程度": fatigue_level, "緊張程度": tension_level, "計算睡眠時長 (小時)": sleep_duration
+                    "疲勞程度": fatigue_level, "緊張程度": tension_level, "睡眠時長": sleep_duration
                 }
 
                 try:
