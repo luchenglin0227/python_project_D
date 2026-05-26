@@ -27,9 +27,9 @@ SHOOTING_FIELD_MAP = {
     "咖啡因攝取": "caffeine_intake",
     "疲勞程度": "fatigue_level",
     "緊張程度": "tension_level",
-    "睡眠時長":"sleep_duration",
+    "睡眠時長": "sleep_duration",
 
-    #計算指標
+    #計算指標 (由下方自動衍生，不需前端傳入)
     "總命中數 (一發+二發)": "total_hits",
     "總命中率": "hit_rate",
     "一發命中率": "first_hit_rate",
@@ -67,62 +67,40 @@ class DataProcessor:
                 return 0.0
         return float(value) if value is not None else 0.0
 
-    def calculate_sleep(self, bedtime, wake_up_time, shoot_date):
-        """
-        工具方法：根據入睡時間和起床時間計算睡眠時長
-        """
-        wake_dt = datetime.combine(shoot_date, wake_up_time)
-        bed_dt  = datetime.combine(shoot_date, bedtime)
-
-        if bed_dt >= wake_dt:
-            bed_dt -= timedelta(days=1)
-
-        duration = wake_dt - bed_dt
-        return round(duration.seconds / 3600, 2)
-
     def process_record(self, ocr_data, manual_data, raw_image_path=""):
         """
-        核心方法：整合所有的數據 (已移除 ocr_confidence 參數)
+        核心方法：整合所有的數據
         """
-        # 數據合併
+        # 1. 數據合併
         raw_data = {**ocr_data, **manual_data}
 
-        # 計算睡眠時長
-        if "入睡時間" in raw_data and "起床時間" in raw_data and "射擊日期" in raw_data:
-            raw_data["sleep_duration"] = self.calculate_sleep(
-                raw_data["入睡時間"],
-                raw_data["起床時間"],
-                raw_data["射擊日期"]
-            )
-        else:
-            raw_data["sleep_duration"] = 0.0
-
-        # 把合併後的字典轉成 DataFrame
+        # 2. 把合併後的字典轉成 DataFrame
         df = pd.DataFrame([raw_data])
         
-        # 把中文欄位名稱對應成英文
+        # 3. 把中文欄位名稱對應成英文
         df = df.rename(columns=self.field_map)
 
-        # 資料型別清洗
+        # 4. 資料型別清洗
         cols_to_fix = ['total_shots', 'first_hit_count', 'second_hit_count', 'miss_count']
         for col in cols_to_fix:
             if col in df.columns:
                 df[col] = df[col].apply(lambda x: int(self.clean_numeric(x)))
 
-        # 初始化衍生指標欄位
+        # 5. 初始化衍生指標欄位
         df['total_hits'] = 0
         for rate_col in ['hit_rate', 'first_hit_rate', 'second_hit_rate', 'miss_rate']:
             df[rate_col] = 0.0
 
-        # 計算衍生指標與資料一致性檢查
+        # 6. 計算衍生指標與資料一致性檢查
         if 'total_shots' in df.columns and df['total_shots'].iloc[0] > 0:
             total = df['total_shots'].iloc[0]
             expected = (df['first_hit_count'].iloc[0] +
                         df['second_hit_count'].iloc[0] +
                         df['miss_count'].iloc[0])
             
+            # (此處的防呆只是最後一道防線，前端已經先擋下了)
             if expected != total:
-                raise ValueError(f"數字不一致：總發數={total}，一發+二發+失誤={expected}，請回頭修正")
+                raise ValueError(f"數字不一致：總發數={total}，一發+二發+失誤={expected}")
 
             df['total_hits'] = df['first_hit_count'] + df['second_hit_count']
             df['hit_rate'] = df['total_hits'] / df['total_shots']
@@ -130,21 +108,12 @@ class DataProcessor:
             df['second_hit_rate'] = df['second_hit_count'] / df['total_shots']
             df['miss_rate'] = df['miss_count'] / df['total_shots']
 
-        # 數值範圍驗證
+        # 7. 數值範圍驗證
         for col in ['fatigue_level', 'tension_level']:
             if col in df.columns:
                 df[col] = df[col].clip(1, 5)
 
-        # 時間欄位格式統一
-        time_cols = ['bedtime', 'wake_up_time', 'arrival_time', 'match_start_time']
-        for col in time_cols:
-            if col in df.columns:
-                if isinstance(df[col].iloc[0], str):
-                    df[col] = pd.to_datetime(
-                        df[col], format='%H:%M:%S', errors='coerce'
-                    ).dt.time
-
-        # 處理九宮格空間數據
+        # 8. 處理九宮格空間數據
         if 'heatmap_matrix' in raw_data and raw_data['heatmap_matrix']:
             matrix = np.array(raw_data['heatmap_matrix']).flatten()
             heatmap_cols = [
@@ -153,7 +122,6 @@ class DataProcessor:
                 'miss_left_low',    'miss_middle_low',    'miss_right_low'
             ]
             for i, col_name in enumerate(heatmap_cols):
-                # 確保存入的是整數型態
                 df[col_name] = int(matrix[i]) if i < len(matrix) else -1
         else:
             heatmap_cols = [
@@ -162,21 +130,21 @@ class DataProcessor:
                 'miss_left_low', 'miss_middle_low', 'miss_right_low'
             ]
             for col_name in heatmap_cols:
-                df[col_name] = -1  # 預設無資料為 -1
+                df[col_name] = -1
 
-        # 生活變數處理
+        # 9. 睡眠變數型別處理 (現在不會再有重複的欄位來干擾這行了)
         if 'sleep_duration' in df.columns:
             df['sleep_duration'] = df['sleep_duration'].apply(self.clean_numeric)
 
-        # 系統管理欄位 (已移除 ocr_confidence)
+        # 10. 系統管理欄位
         df['raw_image_path'] = raw_image_path
         df['created_at'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        # 移除 heatmap_matrix 欄位
+        # 11. 清除暫存矩陣
         if 'heatmap_matrix' in df.columns:
             df = df.drop(columns=['heatmap_matrix'])
 
-        # 把所有 time/date 物件轉成字串
+        # 12. 把所有 time/date 物件轉成字串，確保能寫入資料庫
         for col in df.columns:
             if df[col].dtype == object:
                 df[col] = df[col].apply(lambda x: str(x) if hasattr(x, 'strftime') else x)
