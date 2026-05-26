@@ -216,23 +216,14 @@ def render_page():
             elif (first_hit + second_hit + miss_count) != total_shots:
                 st.error(f"🛑 數據輸入錯誤：請確認【一發命中數 ({first_hit}) + 二發命中數 ({second_hit}) + 失誤數 ({miss_count}) = {first_hit + second_hit + miss_count}】必須剛好等於【總發數 ({total_shots})】！")
             else:
+                # 📌 修正點：將鍵值改為與 processor.py 完全對齊的中文字眼
                 final_shooting_data = {
-                    "total_shots": total_shots,
-                    "first_hit": first_hit,
-                    "second_hit": second_hit,
-                    "miss": miss_count,
-                    "heatmap_matrix": updated_matrix
-                }
-                
-                # 為了確保前後端對齊，將畫面的中文對照名稱放入轉傳字典
-                final_shooting_data_zh = {
                     "總發數": total_shots,
                     "一發命中數": first_hit,
                     "二發命中數": second_hit,
                     "失誤數": miss_count,
                     "heatmap_matrix": updated_matrix
                 }
-                
                 manual_life_data = {
                     "使用者編號": user_id, "射擊日期": record_date, "比賽時間": match_start_time, "靶場": shooting_range,
                     "入睡時間": bedtime, "起床時間": wake_up_time, "到場時間": arrival_time, "熱身時長": warm_up_time,
@@ -243,7 +234,7 @@ def render_page():
                 try:
                     processor = DataProcessor()
                     clean_df = processor.process_record(
-                        final_shooting_data_zh, manual_life_data,
+                        final_shooting_data, manual_life_data,
                         raw_image_path=f"./storage/{user_id}_{record_date}.jpg"
                     )
 
