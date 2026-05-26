@@ -117,12 +117,13 @@ def render_page():
                 second_hit_count = c14.number_input("二發命中數", value=10)
                 miss_count = c15.number_input("失誤數", value=15)
 
-           # 4. 空間分析矩陣
-            with st.expander("🔥 空間分析矩陣 (方位命中率 %)", expanded=True):
+
+            # 4. 空間分析矩陣
+            with st.expander("🔥 空間分析矩陣 (方位命中表現)", expanded=True):
                 if has_cache:
                     st.success("✅ 已成功帶入 AI 換算數據！")
                 else:
-                    st.info("💡 提示：點擊左側辨識按鈕後，此處九宮格將會自動代入分析結果。")
+                    st.info("💡 提示：點擊左側辨識按鈕後，此處九宮格將會自動預設分析結果。")
                     
                 grid_cols = st.columns(3)
                 
@@ -138,12 +139,31 @@ def render_page():
                     ("右側低位命中率", "miss_right_low")
                 ]
 
+                # 等級與選項的定義
+                level_options = ["良好", "尚可", "較差"]
+
                 matrix_values = {}
                 for i, (label_zh, name_en) in enumerate(matrix_configs):
-                    matrix_values[name_en] = grid_cols[i % 3].number_input(
-                        label_zh, min_value=0.0, max_value=100.0,
-                        value=float(current_heat_scores[i]), step=0.1
+                    # 依據 OCR 分數自動判定預設等級
+                    score = float(current_heat_scores[i])
+                    if score >= 80.0:
+                        default_index = 0  # 良好
+                    elif score >= 40.0:
+                        default_index = 1  # 尚可
+                    else:
+                        default_index = 2  # 較差
+
+                    # 將 number_input 改為 selectbox 下拉式選單
+                    selected_level = grid_cols[i % 3].selectbox(
+                        label_zh,
+                        options=level_options,
+                        index=default_index,
+                        key=f"select_{name_en}"
                     )
+                    
+                    # 將中文對應轉換為數字儲存 (良好->2, 尚可->1, 較差->0)
+                    level_map = {"良好": 2, "尚可": 1, "較差": 0}
+                    matrix_values[name_en] = level_map[selected_level]
 
             # =============================================================
             # 儲存確認與同步雲端

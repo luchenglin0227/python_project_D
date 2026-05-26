@@ -50,7 +50,6 @@ SHOOTING_FIELD_MAP = {
 
     #系統管理欄位 
     "原始圖片存檔路徑": "raw_image_path",
-    # 這裡已刪除 OCR 辨識信心分數
     "系統紀錄時間": "created_at",
 }
 
@@ -60,10 +59,7 @@ class DataProcessor:
         self.field_map = SHOOTING_FIELD_MAP
 
     def clean_numeric(self, value):
-        """
-        工具方法：清洗數值型字串
-        作用：移除 '%'、空格，並處理髒資料（非數字字串），確保轉為 float
-        """
+        """清洗數字欄位，移除非數字字元"""
         if isinstance(value, str):
             value = value.replace('%', '').strip()
             try:
@@ -149,7 +145,7 @@ class DataProcessor:
                         df[col], format='%H:%M:%S', errors='coerce'
                     ).dt.time
 
-        # 空間分析矩陣處理
+        # 空間分析矩陣處理 (調整為整數儲存 0, 1, 2)
         if 'heatmap_matrix' in raw_data:
             matrix = np.array(raw_data['heatmap_matrix']).flatten()
             heatmap_cols = [
@@ -158,7 +154,8 @@ class DataProcessor:
                 'miss_left_low',    'miss_middle_low',    'miss_right_low'
             ]
             for i, col_name in enumerate(heatmap_cols):
-                df[col_name] = float(matrix[i]) if i < len(matrix) else 0.0
+                # 修改點：改存為 int 型態
+                df[col_name] = int(matrix[i]) if i < len(matrix) else 2
         else:
             heatmap_cols = [
                 'miss_left_high', 'miss_middle_high', 'miss_right_high',
@@ -166,7 +163,7 @@ class DataProcessor:
                 'miss_left_low', 'miss_middle_low', 'miss_right_low'
             ]
             for col_name in heatmap_cols:
-                df[col_name] = 0
+                df[col_name] = 2  # 預設為良好
 
         # 生活變數處理
         if 'sleep_duration' in df.columns:

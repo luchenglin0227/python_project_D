@@ -1,4 +1,3 @@
-# src_ui/analysis_page.py
 import streamlit as st
 import pandas as pd
 import database
@@ -31,69 +30,27 @@ def render_page():
                 if total_count > 0:
                     # 建立反向對映表
                     reverse_map = {v: k for k, v in SHOOTING_FIELD_MAP.items()}
+                    
                     # =============================================================
-                    # 📌 大盤視覺化看板 (Dashboard) 
+                    # 📌 1. 數據轉換準備區（將 0,1,2 轉回中文供表格與文字顯示）
                     # =============================================================
-                    st.markdown("---")
-                    st.header("📈 全隊整體表現 Dashboard")
+                    heatmap_eng_cols = [
+                        'miss_left_high', 'miss_middle_high', 'miss_right_high',
+                        'miss_left_mid',  'miss_middle_mid',  'miss_right_mid',
+                        'miss_left_low',  'miss_middle_low',  'miss_right_low'
+                    ]
                     
-                    # 尋找組員資料表中對應的命中率欄位
-                    hit_rate_col = None
-                    for eng, zh in SHOOTING_FIELD_MAP.items():
-                        if "命中率" in eng or "hit_rate" in zh:
-                            hit_rate_col = zh
-                            break
-                    if not hit_rate_col:
-                        for col in raw_df.columns:
-                            if "命中率" in str(col) or "rate" in str(col).lower():
-                                hit_rate_col = col
-                                break
-
-                    # 如果找到了命中率數據，就畫出你的精美 KPI & 趨勢圖
-                    if hit_rate_col in raw_df.columns:
-                        try:
-                            # 確保數據是數字
-                            valid_rates = pd.to_numeric(raw_df[hit_rate_col], errors='coerce').dropna()
-                            avg_hit_rate = valid_rates.mean()
-                            
-                            # 如果命中率原本就是 0-100 的百分比，則調整計算
-                            if avg_hit_rate > 1.0:
-                                avg_hit_rate = avg_hit_rate / 100.0
-                                
-                            avg_miss_rate = 1.0 - avg_hit_rate
-
-                            # 1. 你的 Performance KPI 儀表板
-                            st.subheader("Performance KPI")
-                            dkpi1, dkpi2 = st.columns(2)
-                            dkpi1.metric("全隊平均 Hit Rate", f"{avg_hit_rate:.2%}")
-                            dkpi2.metric("全隊平均 Miss Rate", f"{avg_miss_rate:.2%}")
-
-                            # 2. 你的 Performance Trend 趨勢折線圖
-                            st.subheader("Performance Trend (歷史表現趨勢)")
-                            date_col = None
-                            for eng, zh in SHOOTING_FIELD_MAP.items():
-                                if "日期" in eng or "date" in zh:
-                                    date_col = zh
-                                    break
-                            
-                            if date_col in raw_df.columns:
-                                trend_df = raw_df.copy()
-                                trend_df["parsed_date"] = pd.to_datetime(trend_df[date_col]).dt.date
-                                trend_df[hit_rate_col] = pd.to_numeric(trend_df[hit_rate_col], errors='coerce')
-                                if trend_df[hit_rate_col].mean() > 1.0:
-                                    trend_df[hit_rate_col] = trend_df[hit_rate_col] / 100.0
-                                    
-                                trend_data = trend_df.groupby("parsed_date")[hit_rate_col].mean()
-                                st.line_chart(trend_data)
-                        except Exception as chart_err:
-                            st.info(f"💡 趨勢圖表正在等待更多標準格式數據累積中...")
-                    else:
-                        st.info("💡 雲端資料串接成功！當正式數據寫入後，此處將自動呈現你的 Performance KPI 與 Trend 折線圖。")
+                    # 建立數字轉中文的反向映射
+                    num_to_zh_map = {2: "良好", 1: "尚可", 0: "較差", "2": "良好", "1": "尚可", "0": "較差"}
                     
-                    st.markdown("---")                    
-                    
+                    # 複製一份專門用來文字與篩選展示的 DataFrame (不影響原始數字 raw_df)
+                    transformed_df = raw_df.copy()
+                    for col in heatmap_eng_cols:
+                        if col in transformed_df.columns:
+                            transformed_df[col] = transformed_df[col].map(num_to_zh_map).fillna(transformed_df[col])
+
                     # 將 DataFrame 的欄位全部轉成中文名
-                    display_df = raw_df.rename(columns=reverse_map)
+                    display_df = transformed_df.rename(columns=reverse_map)
 
                     # 補齊 index 作為辨識不重複紀錄的依據
                     display_df['系統內部序號'] = display_df.index
@@ -103,26 +60,28 @@ def render_page():
                     date_col_zh = reverse_map.get(SHOOTING_FIELD_MAP.get("射擊日期", "record_date"), "射擊日期")
                     created_col_zh = "系統紀錄時間"
                 
-                # 射擊日期
-                if date_col_zh in display_df.columns:
-                    display_df[date_col_zh] = pd.to_datetime(display_df[date_col_zh]).dt.strftime('%Y-%m-%d')
-                
-                # 處理系統紀錄時間的格式
-                if created_col_zh in display_df.columns:
-                    display_df[created_col_zh] = pd.to_datetime(display_df[created_col_zh]).dt.strftime('%Y-%m-%d %H:%M:%S')
-                
-                # 分層查詢區
-                    st.subheader("訓練記錄查詢")
+                    # 處理射擊日期格式
+                    if date_col_zh in display_df.columns:
+                        display_df[date_col_zh] = pd.to_datetime(display_df[date_col_zh], errors='coerce').dt.strftime('%Y-%m-%d')
                     
-                    # 設立橫向三個欄位
+                    # 處理系統紀錄時間的格式
+                    if created_col_zh in display_df.columns:
+                        display_df[created_col_zh] = pd.to_datetime(display_df[created_col_zh], errors='coerce').dt.strftime('%Y-%m-%d %H:%M:%S')
+                    
+                    # =============================================================
+                    # 📌 2. 先行篩選區（必須先選擇選手）
+                    # =============================================================
+                    st.header("🎯 訓練記錄查詢與選手篩選")
+                    
+                    # 設立橫向三個篩選欄位
                     filter_col1, filter_col2, filter_col3 = st.columns(3)
                     
                     # 第一層：選擇使用者
                     with filter_col1:
                         all_users = sorted(display_df[user_col_zh].dropna().unique().tolist())
-                        selected_user = st.selectbox("選擇選手：", all_users)
+                        selected_user = st.selectbox("請先選取選手：", all_users)
                     
-                    # 根據選定的使用者，過濾出該選手的資料
+                    # 根據選定的使用者，過濾出該選手的中文顯示資料
                     user_filtered_df = display_df[display_df[user_col_zh] == selected_user]
                     
                     # 第二層：選擇訓練日期
@@ -133,10 +92,9 @@ def render_page():
                     # 根據選定的使用者 + 射擊日期，進一步過濾
                     date_filtered_df = user_filtered_df[user_filtered_df[date_col_zh] == selected_date]
                     
-                    # 第三層：選擇精確紀錄時間（避免同一天有多筆紀錄）】
+                    # 第三層：選擇精確紀錄時間（避免同一天有多筆紀錄）
                     with filter_col3:
                         time_options = []
-                        # 建立時間選單顯示字串，並把「系統內部序號」藏在裡面以便精確對應
                         for _, row in date_filtered_df.iterrows():
                             c_val = row.get(created_col_zh, "未知時間")
                             idx_val = row['系統內部序號']
@@ -144,19 +102,20 @@ def render_page():
                             
                         selected_time_str = st.selectbox("選擇紀錄時間：", time_options)
                     
-                    # 找出最終被選中的那一筆資料
+                    # 找出最終被選中的那一筆單次紀錄資料
                     selected_idx = int(selected_time_str.split("(序號: ")[1].replace(")", ""))
                     selected_row = display_df[display_df['系統內部序號'] == selected_idx].iloc[0]
                 
-                    #展開詳細資料
+                    # =============================================================
+                    # 📌 3. 詳細數據展開（顯示中文 良好/尚可/較差）
+                    # =============================================================
                     st.markdown("---")
-                    st.subheader(f"🔍 詳細數據展開：選手 {selected_user} 在 {selected_date} 的訓練紀錄")
+                    st.subheader(f"🔍 當次詳細數據：選手 {selected_user} 在 {selected_date} 的訓練紀錄")
                     
-                    #用雙欄呈現
                     with st.container(border=True):
                         col1, col2 = st.columns(2)
                         
-                        # 轉換為清單，過濾掉不需要顯示的內部序號
+                        # 排除不需要顯示的內部序號
                         items = [(k, v) for k, v in selected_row.items() if k != '系統內部序號']
                         mid = (len(items) + 1) // 2
                         
@@ -169,54 +128,110 @@ def render_page():
                             for key, val in items[mid:]:
                                 if str(key).lower() in ['index', 'id']: continue
                                 st.write(f"**📌 {key}** : `{val}`")
-                        # ==========================================
-                        # 進階數據交叉分析 
-                        # ==========================================
-                        st.markdown("---")
-                        st.subheader(" 進階交叉分析 (生活作息 vs 射擊表現)")
-                        st.caption("分析全隊選手的賽前生理與心理狀態，如何影響最終的射擊命中率。")
+                                
+                    # =============================================================
+                    # 📌 4. 後置個人視覺化看板與圖表分析 (Dashboard)
+                    # =============================================================
+                    st.markdown("---")
+                    st.header(f"📈 選手個人表現分析看板 ({selected_user})")
+                    st.caption(f"此看板已自動鎖定並篩選選手：**{selected_user}** 的所有歷史數據。")
+                    
+                    # 核心過濾：從原始數字 raw_df 中切出該指定選手的歷史資料，確保科學計算不報錯
+                    user_raw_df = raw_df[raw_df['user_id'] == selected_user].copy()
+                    
+                    # 尋找組員資料表中對應的命中率欄位
+                    hit_rate_col = None
+                    for eng, zh in SHOOTING_FIELD_MAP.items():
+                        if "命中率" in eng or "hit_rate" in zh:
+                            hit_rate_col = zh
+                            break
+                    if not hit_rate_col:
+                        for col in user_raw_df.columns:
+                            if "命中率" in str(col) or "rate" in str(col).lower():
+                                hit_rate_col = col
+                                break
+
+                    # 如果找到了命中率數據，就畫出個人專屬 KPI 與 趨勢圖
+                    if hit_rate_col in user_raw_df.columns and not user_raw_df.empty:
+                        try:
+                            # 確保數據是數字
+                            valid_rates = pd.to_numeric(user_raw_df[hit_rate_col], errors='coerce').dropna()
+                            avg_hit_rate = valid_rates.mean()
+                            
+                            # 如果命中率原本就是 0-100 的百分比，則調整計算
+                            if avg_hit_rate > 1.0:
+                                avg_hit_rate = avg_hit_rate / 100.0
+                                
+                            avg_miss_rate = 1.0 - avg_hit_rate
+
+                            # A. 個人 Performance KPI 儀表板
+                            st.subheader("個人歷史平均 Performance KPI")
+                            dkpi1, dkpi2 = st.columns(2)
+                            dkpi1.metric("個人平均 Hit Rate", f"{avg_hit_rate:.2%}")
+                            dkpi2.metric("個人平均 Miss Rate", f"{avg_miss_rate:.2%}")
+
+                            # B. 個人 Performance Trend 趨勢折線圖
+                            st.subheader("個人歷史表現趨勢 (Performance Trend)")
+                            date_col = None
+                            for eng, zh in SHOOTING_FIELD_MAP.items():
+                                if "日期" in eng or "date" in zh:
+                                    date_col = zh
+                                    break
+                            
+                            if date_col in user_raw_df.columns:
+                                user_raw_df["parsed_date"] = pd.to_datetime(user_raw_df[date_col]).dt.date
+                                user_raw_df[hit_rate_col] = pd.to_numeric(user_raw_df[hit_rate_col], errors='coerce')
+                                if user_raw_df[hit_rate_col].mean() > 1.0:
+                                    user_raw_df[hit_rate_col] = user_raw_df[hit_rate_col] / 100.0
+                                    
+                                trend_data = user_raw_df.groupby("parsed_date")[hit_rate_col].mean()
+                                st.line_chart(trend_data)
+                        except Exception as chart_err:
+                            st.info(f"💡 趨勢圖表正在等待更多標準格式數據累積中...")
+                    else:
+                        st.info(f"💡 該選手目前尚無足夠的命中率數據生成歷史趨勢圖。")
+                    
+                    # =============================================================
+                    # 📌 5. 個人生活作息交叉分析 (已鎖定特定選手資料)
+                    # =============================================================
+                    st.markdown("---")
+                    st.subheader("進階交叉分析 (生活作息 vs 射擊表現)")
+                    st.caption(f"分析選手 **{selected_user}** 的個人生理與心理狀態，如何影響最終的射擊命中率。")
                         
-                        # 複製一份原始資料來畫圖
-                        df_analysis = raw_df.copy()
+                    ana_col1, ana_col2 = st.columns(2)
     
-                        ana_col1, ana_col2 = st.columns(2)
+                    # 1. 睡眠時長 vs 命中率 (折線圖)
+                    with ana_col1:
+                        st.write("**睡眠時長 vs 平均命中率 (%)**")
+                        if 'sleep_duration' in user_raw_df.columns and 'hit_rate' in user_raw_df.columns:
+                            user_raw_df['sleep_duration'] = pd.to_numeric(user_raw_df['sleep_duration'], errors='coerce')
+                            user_raw_df['sleep_group'] = user_raw_df['sleep_duration'].round()
+                                    
+                            hit_data = pd.to_numeric(user_raw_df['hit_rate'], errors='coerce')
+                            if hit_data.mean() <= 1.0:
+                                hit_data = hit_data * 100
+                            user_raw_df['hit_rate_pct'] = hit_data
+                                    
+                            sleep_trend = user_raw_df.groupby('sleep_group')['hit_rate_pct'].mean()
+                            st.line_chart(sleep_trend)
+                        else:
+                            st.info("💡 雲端資料庫累積更多睡眠數據後將自動顯示圖表。")
     
-                        # 1. 睡眠時長 vs 命中率 (折線圖)
-                        with ana_col1:
-                            st.write("** 睡眠時長 vs 平均命中率 (%)**")
-                            # 檢查欄位是否存在
-                            if 'sleep_duration' in df_analysis.columns and 'hit_rate' in df_analysis.columns:
-                                # 確保資料型態為數字，並將睡眠時間四捨五入分群
-                                df_analysis['sleep_duration'] = pd.to_numeric(df_analysis['sleep_duration'], errors='coerce')
-                                df_analysis['sleep_group'] = df_analysis['sleep_duration'].round()
-                                
-                                # 確保命中率換算為百分比
-                                hit_data = pd.to_numeric(df_analysis['hit_rate'], errors='coerce')
-                                if hit_data.mean() <= 1.0:
-                                    hit_data = hit_data * 100
-                                df_analysis['hit_rate_pct'] = hit_data
-                                
-                                # 畫出折線圖
-                                sleep_trend = df_analysis.groupby('sleep_group')['hit_rate_pct'].mean()
-                                st.line_chart(sleep_trend)
-                            else:
-                                st.info("💡 雲端資料庫累積更多睡眠數據後將自動顯示圖表。")
-    
-                        # 2. 緊張程度 vs 失誤率 (長條圖)
-                        with ana_col2:
-                            st.write("**賽前緊張程度 vs 平均失誤率 (%)**")
-                            if 'tension_level' in df_analysis.columns and 'miss_rate' in df_analysis.columns:
-                                df_analysis['tension_level'] = pd.to_numeric(df_analysis['tension_level'], errors='coerce')
-                                
-                                miss_data = pd.to_numeric(df_analysis['miss_rate'], errors='coerce')
-                                if miss_data.mean() <= 1.0:
-                                    miss_data = miss_data * 100
-                                df_analysis['miss_rate_pct'] = miss_data
-                                
-                                tension_trend = df_analysis.groupby('tension_level')['miss_rate_pct'].mean()
-                                st.bar_chart(tension_trend)
-                            else:
-                                st.info("💡 雲端資料庫累積更多緊張程度數據後將自動顯示圖表。")
+                    # 2. 緊張程度 vs 失誤率 (長條圖)
+                    with ana_col2:
+                        st.write("**賽前緊張程度 vs 平均失誤率 (%)**")
+                        if 'tension_level' in user_raw_df.columns and 'miss_rate' in user_raw_df.columns:
+                            user_raw_df['tension_level'] = pd.to_numeric(user_raw_df['tension_level'], errors='coerce')
+                            
+                            miss_data = pd.to_numeric(user_raw_df['miss_rate'], errors='coerce')
+                            if miss_data.mean() <= 1.0:
+                                miss_data = miss_data * 100
+                            user_raw_df['miss_rate_pct'] = miss_data
+                            
+                            tension_trend = user_raw_df.groupby('tension_level')['miss_rate_pct'].mean()
+                            st.bar_chart(tension_trend)
+                        else:
+                            st.info("💡 雲端資料庫累積更多緊張程度數據後將自動顯示圖表。")
                 else:
                     st.warning("📭 雲端目前沒有任何紀錄。")
                 
