@@ -130,28 +130,42 @@ def render_page():
                                 if str(key).lower() in ['index', 'id']: continue
                                 st.write(f"**📌 {key}** : `{val}`")
                                 
-                    # =============================================================
+                   # =============================================================
                     # 📌 4. 後置個人視覺化看板與圖表分析 (Dashboard)
                     # =============================================================
                     st.markdown("---")
                     st.header(f"📈 選手個人表現分析看板 ({selected_user})")
                     st.caption(f"此看板已自動鎖定並篩選選手：**{selected_user}** 的所有歷史數據。")
                     
-                    # 核心過濾：從原始數字 raw_df 中切出該指定選手的歷史資料，確保科學計算不報錯
-                    user_raw_df = raw_df[raw_df['user_id'] == selected_user].copy()
+                    # 💡 【安全相容修正】自動偵測 raw_df 到底是用中文還是英文當欄位名
+                    actual_user_col = None
+                    if 'user_id' in raw_df.columns:
+                        actual_user_col = 'user_id'
+                    elif '使用者編號' in raw_df.columns:
+                        actual_user_col = '使用者編號'
+                    else:
+                        # 萬一兩者都找不到，預設嘗試用對照表對齊
+                        actual_user_col = user_col_zh
                     
-                    # 尋找組員資料表中對應的命中率欄位
+                    # 核心過濾：用動態偵測到的正確欄位切出指定選手資料
+                    user_raw_df = raw_df[raw_df[actual_user_col] == selected_user].copy()
+                    
+                    # 💡 【關鍵一步】將這份個人資料的欄位名稱「全部對齊成英文」，確保後續的 sleep_duration、hit_rate 順利運算
+                    # 如果原本就是中文，這行會利用你的對照表將它轉成英文鍵值
+                    user_raw_df = user_raw_df.rename(columns=SHOOTING_FIELD_MAP)
+                    
+                    # 尋找對應的命中率欄位
                     hit_rate_col = None
-                    for eng, zh in SHOOTING_FIELD_MAP.items():
-                        if "命中率" in eng or "hit_rate" in zh:
-                            hit_rate_col = zh
+                    for col in ['hit_rate', '總命中率']:
+                        if col in user_raw_df.columns:
+                            hit_rate_col = col
                             break
                     if not hit_rate_col:
                         for col in user_raw_df.columns:
                             if "命中率" in str(col) or "rate" in str(col).lower():
                                 hit_rate_col = col
                                 break
-
+                            
                     # 如果找到了命中率數據，就畫出個人專屬 KPI 與 趨勢圖
                     if hit_rate_col in user_raw_df.columns and not user_raw_df.empty:
                         try:
