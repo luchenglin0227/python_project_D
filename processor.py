@@ -27,7 +27,6 @@ SHOOTING_FIELD_MAP = {
     "咖啡因攝取": "caffeine_intake",
     "疲勞程度": "fatigue_level",
     "緊張程度": "tension_level",
-    "射擊靶場": "Shooting_range",
 
     #計算指標
     "總命中數 (一發+二發)": "total_hits",
