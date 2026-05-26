@@ -51,14 +51,13 @@ def render_page():
                         # 這樣可以確保每次按下按鈕，OpenCV 都會重新切九宮格、重新計算顏色權重
                         process_ocr_and_heatmap.clear()
                         
-                        img, full_text, heat_scores, ocr_conf = process_ocr_and_heatmap(file_bytes, is_pdf)
+                        img, full_text, heat_scores = process_ocr_and_heatmap(file_bytes, is_pdf)
                         
                         # 將 AI 吐出的所有數據寫入會話狀態快取
                         st.session_state["ocr_result_cache"] = {
                             "img": img,
                             "full_text": full_text,
-                            "heat_scores": heat_scores,
-                            "ocr_conf": ocr_conf
+                            "heat_scores": heat_scores
                         }
                         st.success("🎉 AI 影像辨識與光譜矩陣換算成功！")
                         st.rerun()

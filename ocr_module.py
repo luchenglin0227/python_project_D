@@ -30,7 +30,6 @@ def process_ocr_and_heatmap(file_bytes, is_pdf):
     
     # 拆解 AI 辨識結構
     for res in ocr_results:
-        # res 格式為: (bbox, text, confidence)
         texts.append(res[1])
         
     full_text = " ".join(texts)
