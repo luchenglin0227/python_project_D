@@ -145,7 +145,7 @@ def render_page():
             
             # D. 日常生活因子
             st.markdown("#### 🌙 選手日常生活因子紀錄")
-            c9, c10 = st.columns(3)
+            c9, c10 = st.columns(2)
 
             bedtime = c9.time_input("入睡時間：", value=datetime.strptime("23:00", "%H:%M").time())
             wake_up_time = c10.time_input("起床時間：", value=datetime.strptime("07:00", "%H:%M").time())
