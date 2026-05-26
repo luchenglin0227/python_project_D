@@ -90,14 +90,12 @@ def render_page():
             st.info("請在上傳區提供飛靶成績單圖片。")
 
     # =============================================================
-    # 📝 3. 右側區塊：依據指定順序重新排列的控制面板
+    # 📝 3. 右側區塊：控制面板
     # =============================================================
     with col_form:
         st.subheader("數據校正與每日作息填寫")
         
-        # ────────────────────────────────────────────────────────
-        #  第一區塊：基本資訊 (改為表單外以達到最佳渲染相容性)
-        # ────────────────────────────────────────────────────────
+        # ── 第一區塊：基本資訊 ──
         st.markdown("### 📋 1. 基本資訊")
         c1, c2 = st.columns(2)
         user_id = c1.text_input("選手編號：", value="User_01")
@@ -108,9 +106,7 @@ def render_page():
         shooting_range = c4.selectbox("射擊靶場：", ["A", "B", "C"])
         st.markdown("---")
 
-        # ────────────────────────────────────────────────────────
-        #  第二區塊：九方位空間分析 (原 C 區移至第二順位)
-        # ────────────────────────────────────────────────────────
+        # ── 第二區塊：九方位空間分析 ──
         st.markdown("### 🎯 2. 九方位彈著點與命中率空間分析")
         st.caption("提示標籤顏色： :green[良好] (分數>=80) | :orange[尚可] (40~79) | :red[較差] (<40) | 無資料")
         
@@ -156,9 +152,7 @@ def render_page():
         ]
         st.markdown("---")
 
-        # ────────────────────────────────────────────────────────
-        #  第三區塊：射擊表現數據 (獨立於表單外，支援即時機率看板)
-        # ────────────────────────────────────────────────────────
+        # ── 第三區塊：射擊表現數據 ──
         st.markdown("### 📊 3. 射擊表現數據")
         c5, c6, c7, c8 = st.columns(4)
         total_shots = c5.number_input("總發數：", min_value=0, value=0)
@@ -182,12 +176,8 @@ def render_page():
         rate_col3.metric("❌ 即時失誤率", f"{calc_miss_rate:.1%}")
         st.markdown("---")
 
-        # ────────────────────────────────────────────────────────
-        #  第四區塊：睡眠時間 + 日常生活因子紀錄 (【合併大區塊】)
-        # ────────────────────────────────────────────────────────
+        # ── 第四區塊：睡眠時間 + 日常生活因子紀錄 ──
         st.markdown("### 🌙 4. 睡眠時間與日常生活因子紀錄")
-        
-        # 睡眠輸入子區塊
         st.caption("🔒 睡眠時數動態聯動區：調整時間下方時數將即時更新")
         c_sleep1, c_sleep2 = st.columns(2)
         bedtime = c_sleep1.time_input("請選擇入睡時間：", value=datetime.strptime("23:00", "%H:%M").time())
@@ -197,7 +187,7 @@ def render_page():
         st.info(f"⏳ (系統自動換算) 當日睡眠時長: {sleep_duration} 小時")
         st.markdown("")
 
-        # 日常生活因子其餘欄位大表單 (使用單一 Form 包裹防誤觸與統一提交)
+        # 日常生活因子其餘欄位大表單
         with st.form("shooting_form_final"):
             c11, c12 = st.columns(2)
             arrival_time = c11.time_input("到場時間：",  value=datetime.strptime("08:30", "%H:%M").time())
@@ -213,7 +203,6 @@ def render_page():
             tension_level = c17.select_slider("緊張程度", options=[1, 2, 3, 4, 5], value=1)
 
             st.markdown("---")
-            # 二次核對安全確認鎖
             confirm_lock = st.checkbox("🚨 我已確認以上 1 ~ 4 區的所有輸入數據皆正確無誤", value=False)
             submit_btn = st.form_submit_button("💾 結構化並上傳雲端資料庫")
 
@@ -223,8 +212,20 @@ def render_page():
         if submit_btn:
             if not confirm_lock:
                 st.error("🛑 上傳失敗：請先勾選下方的「我已確認以上 1 ~ 4 區的所有輸入數據皆正確無誤」核取方塊！")
+            # 📌 【新增白話防呆攔截機制】優先檢查前端數學一致性
+            elif (first_hit + second_hit + miss_count) != total_shots:
+                st.error(f"🛑 數據輸入錯誤：請確認【一發命中數 ({first_hit}) + 二發命中數 ({second_hit}) + 失誤數 ({miss_count}) = {first_hit + second_hit + miss_count}】必須剛好等於【總發數 ({total_shots})】！")
             else:
                 final_shooting_data = {
+                    "total_shots": total_shots,
+                    "first_hit": first_hit,
+                    "second_hit": second_hit,
+                    "miss": miss_count,
+                    "heatmap_matrix": updated_matrix
+                }
+                
+                # 為了確保前後端對齊，將畫面的中文對照名稱放入轉傳字典
+                final_shooting_data_zh = {
                     "總發數": total_shots,
                     "一發命中數": first_hit,
                     "二發命中數": second_hit,
@@ -242,7 +243,7 @@ def render_page():
                 try:
                     processor = DataProcessor()
                     clean_df = processor.process_record(
-                        final_shooting_data, manual_life_data,
+                        final_shooting_data_zh, manual_life_data,
                         raw_image_path=f"./storage/{user_id}_{record_date}.jpg"
                     )
 
