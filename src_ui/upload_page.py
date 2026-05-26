@@ -110,8 +110,8 @@ def render_page():
         st.markdown("### 🎯 2. 九方位彈著點與命中率空間分析")
         st.caption("提示標籤顏色： :green[良好] (分數>=80) | :orange[尚可] (40~79) | :red[較差] (<40) | 無資料")
         
-        status_options = ["⚫無資料", "🔴較差", "🟡尚可", "🟢良好"]
-        status_values = {"⚫無資料": -1, "🔴較差": 0, "🟡尚可": 1, "🟢良好": 2}
+        status_options = ["無資料", "🔴較差", "🟡尚可", "🟢良好"]
+        status_values = {"無資料": -1, "🔴較差": 0, "🟡尚可": 1, "🟢良好": 2}
 
         default_indices = []
         for idx in range(9):
