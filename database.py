@@ -59,17 +59,18 @@ def insert_record(clean_df: pd.DataFrame) -> bool:
         st.error(f"❌ 雲端資料寫入失敗: {e}")
         return False
 
+# 💡 【關鍵修正】加上 cache_data 裝飾器，這樣別的頁面才能使用 .clear() 清除此函式的快取
+@st.cache_data(ttl=0)
 def load_records(user_id: str = None) -> pd.DataFrame:
     """
     從 Google Sheets 雲端即時載入所有紀錄，回傳為 Pandas DataFrame。
-    可用於隨機森林模型訓練、歷年趨勢折線圖、以及九宮格空間分析。
     """
     conn = _get_gsheets_conn()
     if conn is None:
         return pd.DataFrame()
 
     try:
-        # 即時從雲端抓取最新數據 (ttl=0 代表不使用暫存，每次都抓最新的)
+        # 即時從雲端抓取最新數據
         df = conn.read(worksheet=WORKSHEET_NAME, ttl=0)
         
         if df.empty:
@@ -79,7 +80,7 @@ def load_records(user_id: str = None) -> pd.DataFrame:
         if user_id:
             df = df[df["user_id"] == user_id]
 
-        # 確保日期欄位格式正確，方便後續視覺化折線圖排序
+        # 確保日期欄位格式正確
         if "record_date" in df.columns:
             df["record_date"] = pd.to_datetime(df["record_date"], errors="coerce")
             df = df.sort_values(by="record_date", ascending=False)
@@ -95,11 +96,8 @@ def get_all_records():
     從 Google Sheets 讀取所有歷史紀錄並回傳為 DataFrame
     """
     try:
-        # 1. 建立雲端連接
         conn = st.connection("gsheets", type=GSheetsConnection)
-        
-        # 2. 直接讀取名為 'records' 的分頁
-        df = conn.read(worksheet="records", ttl="5m") # ttl=5m 代表快取5分鐘，避免頻繁抓取爆量
+        df = conn.read(worksheet="records", ttl="5m") 
         return df
     except Exception as e:
         print(f"讀取雲端資料失敗: {e}")

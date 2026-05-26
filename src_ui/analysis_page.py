@@ -16,7 +16,7 @@ def render_page():
         
         # 建立一個刷新按鈕
         if st.button("🔄 重新整理雲端資料"):
-            database.load_records.clear()  # 清除 database.py 中的快取
+            database.load_records.clear()  # 現在 database 有掛快取了，這行可以正常執行
             st.rerun()
             
         try:
@@ -130,7 +130,7 @@ def render_page():
                                 if str(key).lower() in ['index', 'id']: continue
                                 st.write(f"**📌 {key}** : `{val}`")
                                 
-                   # =============================================================
+                    # =============================================================
                     # 📌 4. 後置個人視覺化看板與圖表分析 (Dashboard)
                     # =============================================================
                     st.markdown("---")
@@ -144,14 +144,12 @@ def render_page():
                     elif '使用者編號' in raw_df.columns:
                         actual_user_col = '使用者編號'
                     else:
-                        # 萬一兩者都找不到，預設嘗試用對照表對齊
                         actual_user_col = user_col_zh
                     
                     # 核心過濾：用動態偵測到的正確欄位切出指定選手資料
                     user_raw_df = raw_df[raw_df[actual_user_col] == selected_user].copy()
                     
-                    # 💡 【關鍵一步】將這份個人資料的欄位名稱「全部對齊成英文」，確保後續的 sleep_duration、hit_rate 順利運算
-                    # 如果原本就是中文，這行會利用你的對照表將它轉成英文鍵值
+                    # 💡 將這份個人資料的欄位名稱對齊成英文，確保後續順利運算
                     user_raw_df = user_raw_df.rename(columns=SHOOTING_FIELD_MAP)
                     
                     # 尋找對應的命中率欄位
@@ -233,9 +231,28 @@ def render_page():
                             st.info("💡 雲端資料庫累積更多睡眠數據後將自動顯示圖表。")
     
                     # 2. 緊張程度 vs 失誤率 (長條圖)
+                    # 💡 【關鍵修正】補齊原本在此處中斷的語法，並關閉對應的縮排
                     with ana_col2:
                         st.write("**⚡ 賽前緊張程度 vs 平均失誤率 (%)**")
                         if 'tension_level' in user_raw_df.columns and 'miss_rate' in user_raw_df.columns:
                             user_raw_df['tension_level'] = pd.to_numeric(user_raw_df['tension_level'], errors='coerce')
                             
-                            miss_data = pd.to_numeric(user_raw_df
+                            miss_data = pd.to_numeric(user_raw_df['miss_rate'], errors='coerce')
+                            if miss_data.mean() <= 1.0:
+                                miss_data = miss_data * 100
+                            user_raw_df['miss_rate_pct'] = miss_data
+                            
+                            tension_trend = user_raw_df.groupby('tension_level')['miss_rate_pct'].mean()
+                            st.bar_chart(tension_trend)
+                        else:
+                            st.info("💡 雲端資料庫累積更多緊張程度數據後將自動顯示圖表。")
+                else:
+                    st.warning("📭 雲端目前沒有任何紀錄。")
+                
+        except Exception as e:
+            st.error(f"❌ 無法讀取歷史紀錄：{e}")
+            
+    elif admin_password == "":
+        st.warning("🔑 請輸入密碼以解鎖選手歷程數據。")
+    else:
+        st.error("❌ 密碼錯誤！您沒有存取歷史數據的權限。")
