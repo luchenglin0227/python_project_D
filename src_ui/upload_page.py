@@ -164,7 +164,7 @@ def render_page():
             
             c16, c17 = st.columns(2)
             fatigue_level = c16.select_slider("疲勞程度", options=[1, 2, 3, 4, 5], value=1)
-            tension_level = c17.slider("緊張程度",  options=[1, 2, 3, 4, 5], value=1)
+            tension_level = c17.select_slider("緊張程度",  options=[1, 2, 3, 4, 5], value=1)
 
             submit_btn = st.form_submit_button("💾 結構化並上傳雲端資料庫")
         # =============================================================
