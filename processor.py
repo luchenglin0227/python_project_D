@@ -145,8 +145,8 @@ class DataProcessor:
                         df[col], format='%H:%M:%S', errors='coerce'
                     ).dt.time
 
-        # 空間分析矩陣處理 (調整為整數儲存 0, 1, 2)
-        if 'heatmap_matrix' in raw_data:
+        # 處理九宮格空間數據
+        if 'heatmap_matrix' in raw_data and raw_data['heatmap_matrix']:
             matrix = np.array(raw_data['heatmap_matrix']).flatten()
             heatmap_cols = [
                 'miss_left_high',   'miss_middle_high',   'miss_right_high',
@@ -154,8 +154,8 @@ class DataProcessor:
                 'miss_left_low',    'miss_middle_low',    'miss_right_low'
             ]
             for i, col_name in enumerate(heatmap_cols):
-                # 修改點：改存為 int 型態
-                df[col_name] = int(matrix[i]) if i < len(matrix) else 2
+                # 確保存入的是整數型態
+                df[col_name] = int(matrix[i]) if i < len(matrix) else -1
         else:
             heatmap_cols = [
                 'miss_left_high', 'miss_middle_high', 'miss_right_high',
@@ -163,13 +163,13 @@ class DataProcessor:
                 'miss_left_low', 'miss_middle_low', 'miss_right_low'
             ]
             for col_name in heatmap_cols:
-                df[col_name] = 2  # 預設為良好
+                df[col_name] = -1  # 預設無資料為 -1
 
         # 生活變數處理
         if 'sleep_duration' in df.columns:
             df['sleep_duration'] = df['sleep_duration'].apply(self.clean_numeric)
 
-        # 5. 系統管理欄位 (已移除 ocr_confidence)
+        # 系統管理欄位 (已移除 ocr_confidence)
         df['raw_image_path'] = raw_image_path
         df['created_at'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 

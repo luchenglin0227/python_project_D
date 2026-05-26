@@ -1,226 +1,214 @@
 import streamlit as st
 import cv2
 import pandas as pd
+import numpy as np
 from datetime import datetime
 from processor import DataProcessor
 import database
 from ocr_module import process_ocr_and_heatmap, calculate_sleep_duration
 
-
 def render_page():
     st.title("飛靶 OCR 辨識與日常生活紀錄")
-    st.caption("💡提醒：您可以同時進行 AI 影像辨識與填寫生活因子")
+    st.caption("💡 提示：上傳成績單後，系統將自動啟動 AI 影像辨識")
     st.markdown("---")
 
     uploaded_file = st.file_uploader("上傳成績單 (JPG, PNG, PDF)", type=["jpg", "png", "pdf"])
 
-    if uploaded_file:
+    # 建立 Session State 暫存 OCR 結果與上傳狀態
+    if "ocr_result_cache" not in st.session_state:
+        st.session_state["ocr_result_cache"] = None
+    if "last_uploaded_file_name" not in st.session_state:
+        st.session_state["last_uploaded_file_name"] = None
+
+    # 當使用者更換檔案上傳時，自動重置快取，確保重新觸發辨識
+    if uploaded_file and st.session_state["last_uploaded_file_name"] != uploaded_file.name:
+        st.session_state["ocr_result_cache"] = None
+        st.session_state["last_uploaded_file_name"] = uploaded_file.name
+
+    col_img, col_form = st.columns([4, 6])
+
+    # =============================================================
+    #  1. 自動觸發 OCR 辨識區
+    # =============================================================
+    if uploaded_file and st.session_state["ocr_result_cache"] is None:
         file_bytes = uploaded_file.read()
         is_pdf = uploaded_file.type == "application/pdf"
+        
+        with st.spinner("系統正在讀取成績單，請稍候..."):
+            try:
+                # 自動執行第一次 OCR (此時 heatmap_matrix 內應為 0-100 的分數)
+                ocr_res = process_ocr_and_heatmap(file_bytes, is_pdf)
+                st.session_state["ocr_result_cache"] = ocr_res
+                st.toast("✅ AI 辨識完成！已自動換算等級並填入表單。")
+            except Exception as e:
+                st.error(f"❌ AI 自動辨識失敗，已載入預設無資料表單。錯誤: {e}")
+                st.session_state["ocr_result_cache"] = {
+                    "total_shots": 0, "first_hit": 0, "second_hit": 0, "miss": 0,
+                    "heatmap_matrix": None  # 異常時預設無資料
+                }
+    
+    # 取得目前的數據快取
+    ocr_defaults = st.session_state["ocr_result_cache"]
 
-        if "ocr_result_cache" not in st.session_state:
-            st.session_state["ocr_result_cache"] = None
-
-        col_img, col_form = st.columns([4, 6])
-
-        # =============================================================
-        # 左側區塊：檔案預覽與 AI 辨識獨立觸發區
-        # =============================================================
-        with col_img:
-            st.subheader("成績檔案預覽")
-            
-            if st.session_state["ocr_result_cache"] is None:
-                if is_pdf:
-                    from ocr_module import convert_pdf_to_img
-                    preview_img = convert_pdf_to_img(file_bytes)
-                    st.image(preview_img, caption="PDF 檔案首頁預覽", use_container_width=True)
-                else:
-                    st.image(file_bytes, caption="已上傳的成績單圖片", use_container_width=True)
-                    st.markdown("---")
-                
+    # =============================================================
+    # 2. 左側區塊：檔案預覽
+    # =============================================================
+    with col_img:
+        st.subheader("📸 成績檔案預覽")
+        if uploaded_file:
+            if uploaded_file.type == "application/pdf":
+                st.info("📂 PDF 檔案已上傳，已完成背景讀取。")
             else:
-                cached_img = st.session_state["ocr_result_cache"]["img"]
-                st.image(cv2.cvtColor(cached_img, cv2.COLOR_BGR2RGB), caption="AI 光譜軌跡分析圖", use_container_width=True)
+                st.image(uploaded_file, use_container_width=True)
+        else:
+            st.info("請在上傳區提供飛靶成績單圖片。")
+
+    # =============================================================
+    # 📝 3. 右側區塊：校正表單與日常生活因子填寫
+    # =============================================================
+    with col_form:
+        st.subheader("數據校正與每日作息填寫")
+        
+        with st.form("shooting_form"):
+            # A. 基本資訊
+            st.markdown("#### 基本資訊")
+            c1, c2 = st.columns(2)
+            user_id = c1.text_input("選手：", value="User_01")
+            record_date = c2.date_input("射擊日期：", datetime.now())
+            
+            c3, c4 = st.columns(2)
+            match_start_time = c3.time_input("訓練/比賽開始時間：", datetime.now().time())
+            shooting_range = c4.selectbox("射擊靶場：", ["A", "B", "C"])
 
             st.markdown("---")
-            # 將 AI 辨識做成獨立按鈕，點擊後觸發
-            if st.button("開始執行 OCR 辨識", use_container_width=True):
-                with st.spinner("正在執行辨識與光譜映射分析，請同時填寫右側日常因子..."):
-                    try:
-                        # 【關鍵修正】在執行前，強制清除 process_ocr_and_heatmap 的快取
-                        # 這樣可以確保每次按下按鈕，OpenCV 都會重新切九宮格、重新計算顏色權重
-                        process_ocr_and_heatmap.clear()
-                        
-                        img, full_text, heat_scores = process_ocr_and_heatmap(file_bytes, is_pdf)
-                        
-                        # 將 AI 吐出的所有數據寫入會話狀態快取
-                        st.session_state["ocr_result_cache"] = {
-                            "img": img,
-                            "full_text": full_text,
-                            "heat_scores": heat_scores
-                        }
-                        st.success("🎉 AI 影像辨識與光譜矩陣換算成功！")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"❌ 辨識過程中發生錯誤：{e}")
+            
+            # B. 射擊數據 (應要求全面改為純手動輸入，初始值預設為 0)
+            st.markdown("#### 📊 射擊表現數據 (請手動輸入當次數據)")
+            c5, c6, c7, c8 = st.columns(4)
+            total_shots = c5.number_input("總發數：", min_value=0, value=0)
+            first_hit = c6.number_input("一發命中數：", min_value=0, value=0)
+            second_hit = c7.number_input("二發命數：", min_value=0, value=0)
+            miss_count = c8.number_input("失誤數：", min_value=0, value=0)
 
-        # =============================================================
-        # 右側區塊：資料錄入面板
-        # =============================================================
-        with col_form:
-            st.subheader("資料錄入面板")
+            st.markdown("---")
+            
+            # C. 九方位空間命中率 
+            st.markdown("#### 🎯 九方位彈著點與命中率空間分析")
+            st.caption("提示標籤顏色： :green[良好] (分數>=80) | :orange[尚可] (40~79) | :red[較差] (<40) | 無資料")
+            
+            # 下拉式選單選項與對應資料庫儲存數值
+            status_options = ["無資料", "較差", "尚可", "良好"]
+            status_values = {"無資料": -1, "較差": 0, "尚可": 1, "良好": 2}
 
-            # 1. 基本資訊
-            with st.expander("🆔 基本資訊", expanded=True):
-                c1, c2 = st.columns(2)
-                user_id = c1.text_input("使用者編號", value="USER_001")
-                record_date = c2.date_input("射擊日期", value=datetime(2026, 5, 2))
-                match_start_time = st.time_input("比賽時間", value=datetime.strptime("09:00", "%H:%M").time())
-                shooting_range = st.selectbox("靶場", ["A", "B", "C"])
-
-            # 2. 生活因子
-            with st.expander("🧘 生活因子與生理狀態", expanded=True):
-                c3, c4 = st.columns(2)
-                bedtime = c3.time_input("入睡時間", value=datetime.strptime("23:00", "%H:%M").time())
-                wake_up_time = c4.time_input("起床時間", value=datetime.strptime("07:00", "%H:%M").time())
-
-                sleep_duration = calculate_sleep_duration(bedtime, wake_up_time)
-                st.info(f"(系統自動換算)睡眠時長: {sleep_duration} 小時")
-               
-                c5, c6, c7 = st.columns(3)
-                arrival_time = c5.time_input("到場時間", value=datetime.strptime("08:30", "%H:%M").time())
-                warm_up_time = c6.number_input("熱身時長 (min)", value=20.0)
-                caffeine_intake = c7.number_input("咖啡因攝取 (mg)", value=100.0)
-
-                c8, c9 = st.columns(2)
-                breakfast_calories = c8.number_input("早餐熱量 (kcal)", value=450.0)
-                breakfast_protein = c9.number_input("早餐蛋白質攝取量 (g)", value=25.0)
-
-                fatigue_level = st.select_slider("疲勞程度", options=[1, 2, 3, 4, 5], value=2)
-                tension_level = st.select_slider("緊張程度", options=[1, 2, 3, 4, 5], value=1)
-
-            # -------------------------------------------------------------
-            # 核心數據串接
-            # -------------------------------------------------------------
-            has_cache = st.session_state["ocr_result_cache"] is not None
-            current_heat_scores = st.session_state["ocr_result_cache"]["heat_scores"] if has_cache else [100.0]*9
-
-            # 3. 射擊表現
-            with st.expander("📊 射擊表現數據 (OCR 自動帶入)"):
-                c10, c11, c12 = st.columns(3)
-                total_shots = c10.number_input("總發數", value=125)
-                total_hits = c11.number_input("總命中數", value=100)
-                hit_rate = c12.number_input("總命中率(0-1)", value=0.80, format="%.3f")
-
-                c13, c14, c15 = st.columns(3)
-                first_hit_count = c13.number_input("一發命中數 ", value=100)
-                second_hit_count = c14.number_input("二發命中數", value=10)
-                miss_count = c15.number_input("失誤數", value=15)
-
-
-            # 4. 空間分析矩陣
-            with st.expander("🔥 空間分析矩陣 (方位命中表現)", expanded=True):
-                if has_cache:
-                    st.success("✅ 已成功帶入 AI 換算數據！")
+           # 核心換算：根據 OCR 0-100 分數判定下拉選單預設 index
+            default_indices = []
+            for idx in range(9):
+                if ocr_defaults is None or ocr_defaults.get("heatmap_matrix") is None:
+                    default_indices.append(0)
                 else:
-                    st.info("💡 提示：點擊左側辨識按鈕後，此處九宮格將會自動預設分析結果。")
+                    try:
+                        score = float(ocr_defaults["heatmap_matrix"][idx])
+                        if score == -1:
+                            default_indices.append(0)
+                        elif score >= 80.0:
+                            default_indices.append(3)
+                        elif score >= 40.0:
+                            default_indices.append(2)
+                        else:
+                            default_indices.append(1)
+                    except (IndexError, ValueError, TypeError):
+                        default_indices.append(0)
+
+            # 排版九宮格選單
+            h_col1, h_col2, h_col3 = st.columns(3)
+            
+            with h_col1:
+                v0 = h_col1.selectbox("左上 (High Left)", status_options, index=default_indices[0])
+                v3 = h_col1.selectbox("左中 (Mid Left)", status_options, index=default_indices[3])
+                v6 = h_col1.selectbox("左下 (Low Left)", status_options, index=default_indices[6])
+            with h_col2:
+                v1 = h_col2.selectbox("中上 (High Center)", status_options, index=default_indices[1])
+                v4 = h_col2.selectbox("正中 (Center)", status_options, index=default_indices[4])
+                v7 = h_col2.selectbox("中下 (Low Center)", status_options, index=default_indices[7])
+            with h_col3:
+                v2 = h_col3.selectbox("右上 (High Right)", status_options, index=default_indices[2])
+                v5 = h_col3.selectbox("右中 (Mid Right)", status_options, index=default_indices[5])
+                v8 = h_col3.selectbox("右下 (Low Right)", status_options, index=default_indices[8])
+
+            # 轉換為要存入 Google Sheet 的數字矩陣 [-1, 0, 1, 2]
+            updated_matrix = [
+                status_values[v0], status_values[v1], status_values[v2],
+                status_values[v3], status_values[v4], status_values[v5],
+                status_values[v6], status_values[v7], status_values[v8]
+            ]
+
+            st.markdown("---")
+            
+            # D. 日常生活因子
+            st.markdown("#### 🌙 選手日常生活因子紀錄")
+            c9, c10 = st.columns(3)
+
+            bedtime = c9.time_input("入睡時間：", value=datetime.strptime("23:00", "%H:%M").time())
+            wake_up_time = c10.time_input("起床時間：", value=datetime.strptime("07:00", "%H:%M").time())
+
+            sleep_duration = calculate_sleep_duration(bedtime, wake_up_time)
+            st.info(f"(系統自動換算)睡眠時長: {sleep_duration} 小時")
+
+            c11, c12 = st.columns(2)
+            arrival_time = c11.time_input("到場時間：",  value=datetime.strptime("08:30", "%H:%M").time())
+            warm_up_time = c12.number_input("熱身時長 (min)",min_value=0, value=20)
+
+            c13, c14, c15, c16, c17 = st.columns(5)
+            breakfast_calories = c13.number_input("早餐總熱量 (kcal)：", min_value=0, value=450)
+            breakfast_protein = c14.number_input("早餐蛋白質攝取量 (g)", min_value=0.0, value=25.0)
+            caffeine_intake = c15.number_input("咖啡因攝取 (mg)", min_value=0.0, value=100.0)
+            fatigue_level = c16.select_slider("疲勞程度", options=[1, 2, 3, 4, 5], value=1)
+            tension_level = c17.slider("緊張程度",  options=[1, 2, 3, 4, 5], value=1)
+
+            submit_btn = st.form_submit_button("💾 結構化並上傳雲端資料庫")
+        # =============================================================
+        #  4. 後端資料儲存與串接
+        # =============================================================
+        if submit_btn:
+            #對齊 processor.py 內的對照表
+            final_shooting_data = {
+                "總發數": total_shots,
+                "一發命中數": first_hit,
+                "二發命中數": second_hit,
+                "失誤數": miss_count,
+                "heatmap_matrix": updated_matrix  # 1D 陣列，processor.py 的 flatten 可以完美接收
+            }
+            
+            manual_life_data = {
+                "使用者編號": user_id, "射擊日期": record_date, "比賽時間": match_start_time, "靶場": shooting_range,
+                "入睡時間": bedtime, "起床時間": wake_up_time, "到場時間": arrival_time, "熱身時長": warm_up_time,
+                "早餐熱量": breakfast_calories, "蛋白質": breakfast_protein, "咖啡因攝取": caffeine_intake,
+                "疲勞程度": fatigue_level, "緊張程度": tension_level,
+            }
+
+            try:
+                processor = DataProcessor()
+                clean_df = processor.process_record(
+                    final_shooting_data, manual_life_data,
+                    raw_image_path=f"./storage/{user_id}_{record_date}.jpg"
+                )
+
+                with st.spinner("正在將資料即時同步至雲端 Google Sheets..."):
+                    success = database.insert_record(clean_df)
+
+                if success:
+                    st.success("🎉 資料已成功結構化，並即時同步至雲端 Google Sheets！")
                     
-                grid_cols = st.columns(3)
-                
-                matrix_configs = [
-                    ("左側高位命中率", "miss_left_high"), 
-                    ("中間高位命中率", "miss_middle_high"), 
-                    ("右側高位命中率", "miss_right_high"),
-                    ("左側中位命中率", "miss_left_mid"),  
-                    ("正中間命中率", "miss_middle_mid"),  
-                    ("右側中位命中率", "miss_right_mid"),
-                    ("左側低位命中率", "miss_left_low"),  
-                    ("中間低位命中率", "miss_middle_low"),  
-                    ("右側低位命中率", "miss_right_low")
-                ]
-
-                # 等級與選項的定義
-                level_options = ["良好", "尚可", "較差"]
-
-                matrix_values = {}
-                for i, (label_zh, name_en) in enumerate(matrix_configs):
-                    # 依據 OCR 分數自動判定預設等級
-                    score = float(current_heat_scores[i])
-                    if score >= 80.0:
-                        default_index = 0  # 良好
-                    elif score >= 40.0:
-                        default_index = 1  # 尚可
-                    else:
-                        default_index = 2  # 較差
-
-                    # 將 number_input 改為 selectbox 下拉式選單
-                    selected_level = grid_cols[i % 3].selectbox(
-                        label_zh,
-                        options=level_options,
-                        index=default_index,
-                        key=f"select_{name_en}"
-                    )
+                    # 呈現畫面上傳後的結果
+                    display_df = pd.DataFrame({
+                        "欄位": clean_df.columns.tolist(),
+                        "數值": [str(v) for v in clean_df.iloc[0].tolist()]
+                    })
+                    st.dataframe(display_df, height=400)
                     
-                    # 將中文對應轉換為數字儲存 (良好->2, 尚可->1, 較差->0)
-                    level_map = {"良好": 2, "尚可": 1, "較差": 0}
-                    matrix_values[name_en] = level_map[selected_level]
-
-            # =============================================================
-            # 儲存確認與同步雲端
-            # =============================================================
-            if st.button("💾 確認存檔", use_container_width=True):
-                ocr_data = {
-                    "總發數": total_shots,
-                    "一發命中數": first_hit_count,
-                    "二發命中數": second_hit_count,
-                    "失誤數": miss_count,
-                    "heatmap_matrix": [
-                        [matrix_values["miss_left_high"], matrix_values["miss_middle_high"], matrix_values["miss_right_high"]],
-                        [matrix_values["miss_left_mid"],  matrix_values["miss_middle_mid"],  matrix_values["miss_right_mid"]],
-                        [matrix_values["miss_left_low"],  matrix_values["miss_middle_low"],  matrix_values["miss_right_low"]],
-                    ]
-                }
-
-                manual_data = {
-                    "使用者編號": user_id,
-                    "射擊日期": record_date,
-                    "比賽時間": match_start_time,
-                    "靶場": shooting_range,
-                    "入睡時間": bedtime,
-                    "起床時間": wake_up_time,
-                    "到場時間": arrival_time,
-                    "熱身時長": warm_up_time,
-                    "早餐熱量": breakfast_calories,
-                    "蛋白質": breakfast_protein,
-                    "咖啡因攝取": caffeine_intake,
-                    "疲勞程度": fatigue_level,
-                    "緊張程度": tension_level,
-                }
-
-                try:
-                    processor = DataProcessor()
-                    clean_df = processor.process_record(
-                        ocr_data, manual_data,
-                        raw_image_path=f"./storage/{user_id}_{record_date}.jpg"
-                    )
-
-                    with st.spinner("正在將資料即時同步至雲端 Google Sheets..."):
-                        success = database.insert_record(clean_df)
-
-                    if success:
-                        st.success("資料已成功結構化，並即時同步至雲端 Google Sheets 資料庫！")
-                        display_df = pd.DataFrame({
-                            "欄位": clean_df.columns.tolist(),
-                            "數值": [str(v) for v in clean_df.iloc[0].tolist()]
-                        })
-                        st.dataframe(display_df, height=600)
-                        
-                        st.session_state["ocr_result_cache"] = None
-                    else:
-                        st.error("❌ 資料已成功結構化，但同步到雲端時失敗，請檢查網路或密鑰設定。")
-
-                    csv = clean_df.to_csv(index=False).encode('utf-8-sig')
-                    st.download_button("📥 備份：下載本次清洗後 CSV", data=csv, file_name=f"{record_date}_log.csv")
-
-                except ValueError as e:
-                    st.error(f"❌ 資料驗證失敗：{e}")
+                    # 清除快取，釋放資源
+                    st.session_state["ocr_result_cache"] = None
+                else:
+                    st.error("❌ 同步到雲端時失敗，請檢查金鑰設定。")
+            except Exception as e:
+                st.error(f"❌ 資料清洗與數據換算處理發生錯誤: {e}")
