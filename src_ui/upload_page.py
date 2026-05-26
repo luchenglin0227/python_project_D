@@ -43,14 +43,22 @@ def render_page():
                 st.image(cv2.cvtColor(cached_img, cv2.COLOR_BGR2RGB), caption="AI 光譜軌跡分析圖", use_container_width=True)
 
             st.markdown("---")
+            # 將 AI 辨識做成獨立按鈕，點擊後觸發
             if st.button("開始執行 OCR 辨識", use_container_width=True):
                 with st.spinner("正在執行辨識與光譜映射分析，請同時填寫右側日常因子..."):
                     try:
-                        img, full_text, heat_scores = process_ocr_and_heatmap(file_bytes, is_pdf)
+                        # 【關鍵修正】在執行前，強制清除 process_ocr_and_heatmap 的快取
+                        # 這樣可以確保每次按下按鈕，OpenCV 都會重新切九宮格、重新計算顏色權重
+                        process_ocr_and_heatmap.clear()
+                        
+                        img, full_text, heat_scores, ocr_conf = process_ocr_and_heatmap(file_bytes, is_pdf)
+                        
+                        # 將 AI 吐出的所有數據寫入會話狀態快取
                         st.session_state["ocr_result_cache"] = {
                             "img": img,
                             "full_text": full_text,
-                            "heat_scores": heat_scores
+                            "heat_scores": heat_scores,
+                            "ocr_conf": ocr_conf
                         }
                         st.success("🎉 AI 影像辨識與光譜矩陣換算成功！")
                         st.rerun()
