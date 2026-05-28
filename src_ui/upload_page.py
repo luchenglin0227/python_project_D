@@ -8,19 +8,19 @@ import database
 from ocr_module import process_ocr_and_heatmap, calculate_sleep_duration
 
 def render_page():
-    st.title("飛靶 OCR 辨識與日常生活紀錄")
-    st.caption("💡 提示：上傳成績單後，系統將自動啟動 AI 影像辨識")
+    st.title(" 不定向飛靶成績與日常生活紀錄")
+    #st.caption("💡 提示：上傳成績單後，系統將自動啟動 AI 影像辨識")
     st.markdown("---")
 
-    # 📌 初始化 Session State 狀態控制鎖
-    if "ocr_result_cache" not in st.session_state:
-        st.session_state["ocr_result_cache"] = None
+    # 初始化 Session State 狀態控制鎖
+    #if "ocr_result_cache" not in st.session_state:
+    #   st.session_state["ocr_result_cache"] = None
     if "last_uploaded_file_name" not in st.session_state:
         st.session_state["last_uploaded_file_name"] = None
     if "upload_success" not in st.session_state:
         st.session_state["upload_success"] = False
 
-    # 📌 若已成功上傳並鎖定，顯示成功畫面與「上傳其他成績單」按鈕
+    # 若已成功上傳並鎖定，顯示成功畫面與「上傳其他成績單」按鈕
     if st.session_state["upload_success"]:
         st.success("🎉 資料已成功結構化，並即時同步至雲端 Google Sheets！")
         
@@ -34,47 +34,47 @@ def render_page():
 
         st.markdown("---")
         if st.button("🔄 上傳其他成績單", type="primary"):
-            st.session_state["ocr_result_cache"] = None
+            #st.session_state["ocr_result_cache"] = None
             st.session_state["last_uploaded_file_name"] = None
             st.session_state["upload_success"] = False
             if "last_clean_df" in st.session_state:
                 del st.session_state["last_clean_df"]
             st.rerun()
             
-        return # 中斷後續渲染，鎖定畫面
+        return 
 
     # =============================================================
-    #  標準模式：允許填寫與上傳
+    #  允許填寫與上傳
     # =============================================================
     uploaded_file = st.file_uploader("上傳成績單 (JPG, PNG, PDF)", type=["jpg", "png", "pdf"])
 
     if uploaded_file and st.session_state["last_uploaded_file_name"] != uploaded_file.name:
-        st.session_state["ocr_result_cache"] = None
+        #st.session_state["ocr_result_cache"] = None
         st.session_state["last_uploaded_file_name"] = uploaded_file.name
 
-    # 建立左右大佈局
+    # 建立左右布局
     col_img, col_form = st.columns([4, 6])
     
     # =============================================================
-    #  1. 自動觸發 OCR 辨識區
+    #  1. 自動觸發 OCR 辨識區(效果不佳，關掉)
     # =============================================================
-    if uploaded_file and st.session_state["ocr_result_cache"] is None:
-        file_bytes = uploaded_file.read()
-        is_pdf = uploaded_file.type == "application/pdf"
+    #if uploaded_file and st.session_state["ocr_result_cache"] is None:
+    #    file_bytes = uploaded_file.read()
+    #    is_pdf = uploaded_file.type == "application/pdf"
         
-        with st.spinner("系統正在讀取成績單，請稍候..."):
-            try:
-                ocr_res = process_ocr_and_heatmap(file_bytes, is_pdf)
-                st.session_state["ocr_result_cache"] = ocr_res
-                st.toast("✅ AI 辨識完成！已自動換算等級並填入表單。")
-            except Exception as e:
-                st.error(f"❌ AI 自動辨識失敗，已載入預設無資料表單。錯誤: {e}")
-                st.session_state["ocr_result_cache"] = {
-                    "total_shots": 0, "first_hit": 0, "second_hit": 0, "miss": 0,
-                    "heatmap_matrix": None
-                }
+    #    with st.spinner("系統正在讀取成績單，請稍候..."):
+    #        try:
+    #            ocr_res = process_ocr_and_heatmap(file_bytes, is_pdf)
+    #           st.session_state["ocr_result_cache"] = ocr_res
+    #            st.toast("✅ AI 辨識完成！已自動換算等級並填入表單。")
+    #        except Exception as e:
+    #            st.error(f"❌ AI 自動辨識失敗，已載入預設無資料表單。錯誤: {e}")
+    #            st.session_state["ocr_result_cache"] = {
+    #                "total_shots": 0, "first_hit": 0, "second_hit": 0, "miss": 0,
+    #                "heatmap_matrix": None
+    #            }
     
-    ocr_defaults = st.session_state["ocr_result_cache"]
+    #ocr_defaults = st.session_state["ocr_result_cache"]
 
     # ============================================================
     # 2. 左側區塊：檔案預覽
@@ -83,17 +83,17 @@ def render_page():
         st.subheader("📸 成績檔案預覽")
         if uploaded_file:
             if uploaded_file.type == "application/pdf":
-                st.info("📂 PDF 檔案已上傳，已完成背景讀取。")
+                st.info("📂 PDF 檔案已上傳，請進行核對。")
             else:
                 st.image(uploaded_file, use_container_width=True)
         else:
             st.info("請在上傳區提供飛靶成績單圖片。")
 
     # =============================================================
-    # 📝 3. 右側區塊：控制面板
+    # 3. 右側區塊：控制面板
     # =============================================================
     with col_form:
-        st.subheader("數據校正與每日作息填寫")
+        st.subheader("射擊數據與每日作息填寫")
         
         # ── 第一區塊：基本資訊 ──
         st.markdown("### 📋 1. 基本資訊")
@@ -113,23 +113,25 @@ def render_page():
         status_options = ["無資料", "🔴較差", "🟡尚可", "🟢良好"]
         status_values = {"無資料": -1, "🔴較差": 0, "🟡尚可": 1, "🟢良好": 2}
 
-        default_indices = []
-        for idx in range(9):
-            if ocr_defaults is None or ocr_defaults.get("heatmap_matrix") is None:
-                default_indices.append(0)
-            else:
-                try:
-                    score = float(ocr_defaults["heatmap_matrix"][idx])
-                    if score == -1:
-                        default_indices.append(0)
-                    elif score >= 80.0:
-                        default_indices.append(3)
-                    elif score >= 40.0:
-                        default_indices.append(2)
-                    else:
-                        default_indices.append(1)
-                except (IndexError, ValueError, TypeError):
-                    default_indices.append(0)
+        # 註解掉由 OCR 結果填入預設值的邏輯，直接全部給 -1
+        #default_indices = []
+        #for idx in range(9):
+        #    if ocr_defaults is None or ocr_defaults.get("heatmap_matrix") is None:
+        #        default_indices.append(0)
+        #    else:
+        #        try:
+        #            score = float(ocr_defaults["heatmap_matrix"][idx])
+        #            if score == -1:
+        #                default_indices.append(0)
+        #            elif score >= 80.0:
+        #                default_indices.append(3)
+        #            elif score >= 40.0:
+        #                default_indices.append(2)
+        #            else:
+        #                default_indices.append(1)
+        #        except (IndexError, ValueError, TypeError):
+        #            default_indices.append(0)
+        default_indices = [0] * 9  # 強制讓九宮格預設為 "無資料"
 
         h_col1, h_col2, h_col3 = st.columns(3)
         with h_col1:
@@ -154,11 +156,15 @@ def render_page():
 
         # ── 第三區塊：射擊表現數據 ──
         st.markdown("### 📊 3. 射擊表現數據")
-        c5, c6, c7, c8 = st.columns(4)
+        c5, c7, c8 = st.columns(3)
         total_shots = c5.number_input("總發數：", min_value=0, value=0)
-        first_hit = c6.number_input("一發命中數：", min_value=0, value=0)
         second_hit = c7.number_input("二發命中數：", min_value=0, value=0)
         miss_count = c8.number_input("失誤數：", min_value=0, value=0)
+
+        # 由上述三個部分即時在背景用減法推算一發命中數
+        first_hit = total_shots - second_hit - miss_count
+        if first_hit < 0:
+            first_hit = 0  # 避免尚未填完前出現負數
 
         # 計算表現指標
         if total_shots > 0:
@@ -170,10 +176,11 @@ def render_page():
             calc_hit_rate, calc_first_hit_rate, calc_miss_rate = 0.0, 0.0, 0.0
 
         # 即時數據大看板
-        rate_col1, rate_col2, rate_col3 = st.columns(3)
-        rate_col1.metric("🎯 總命中率", f"{calc_hit_rate:.1%}")
-        rate_col2.metric("⚡ 一發命中率", f"{calc_first_hit_rate:.1%}")
-        rate_col3.metric("❌ 失誤率", f"{calc_miss_rate:.1%}")
+        rate_col1, rate_col2, rate_col3, rate_col4 = st.columns(4)
+        rate_col1.metric("💡 推算一發命中數", f"{first_hit} 發")
+        rate_col2.metric("🎯 總命中率", f"{calc_hit_rate:.1%}")
+        rate_col3.metric("⚡ 一發命中率", f"{calc_first_hit_rate:.1%}")
+        rate_col4.metric("❌ 失誤率", f"{calc_miss_rate:.1%}")
         st.markdown("---")
 
         # ── 第四區塊：睡眠時間 + 日常生活因子紀錄 ──
@@ -212,9 +219,6 @@ def render_page():
         if submit_btn:
             if not confirm_lock:
                 st.error("🛑 上傳失敗：請先勾選下方的「我已確認以上 1 ~ 4 區的所有輸入數據皆正確無誤」核取方塊！")
-            # 📌 【新增白話防呆攔截機制】優先檢查前端數學一致性
-            elif (first_hit + second_hit + miss_count) != total_shots:
-                st.error(f"🛑 數據輸入錯誤：請確認【一發命中數 ({first_hit}) + 二發命中數 ({second_hit}) + 失誤數 ({miss_count}) = {first_hit + second_hit + miss_count}】必須剛好等於【總發數 ({total_shots})】！")
             else:
                 # 📌 修正點：將鍵值改為與 processor.py 完全對齊的中文字眼
                 final_shooting_data = {
