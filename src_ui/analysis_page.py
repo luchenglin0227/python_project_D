@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-import numpy as np  # 📌 新增 numpy 以利九宮格矩陣運算
+import numpy as np
 import database
 from processor import SHOOTING_FIELD_MAP
 
@@ -222,57 +222,85 @@ def render_page():
                             else:
                                 st.info("💡 該選手目前尚無足夠的命中率數據生成歷史趨勢圖。")
 
-                            # 九宮格空間表現熱區 (Heatmap)
+                            # =========================================================
+                            # 📌 亮點修改：九宮格空間表現熱區 (結合當次失誤率加權)
+                            # =========================================================
                             st.markdown("---")
-                            st.subheader("🎯 九宮格失誤熱區 (綜合平均評分)")
-                            st.caption("數值範圍：0.0 (較差/常失誤) ~ 2.0 (良好/少失誤)。背景顏色越紅代表該方位失誤率越高。")
+                            st.subheader("🎯 九宮格失誤熱區 (失誤權重佔比 %)")
+                            st.caption("數值代表各方位佔整體失誤的百分比，九宮格總和為 100%。\n\n*(💡 此佔比已根據「每次練習的實際失誤率」進行加權計算，失誤越嚴重的場次，其該方位的失誤權重越高)*")
                             
                             grid_mapping = [
                                 ['miss_left_high', 'miss_middle_high', 'miss_right_high'],
                                 ['miss_left_mid',  'miss_middle_mid',  'miss_right_mid'],
                                 ['miss_left_low',  'miss_middle_low',  'miss_right_low']
                             ]
-                            grid_scores = np.zeros((3, 3))
+                            
+                            zone_intensities = np.zeros((3, 3))
+                            total_miss_intensity = 0
+                            has_valid_data = False
+                            
+                            # 確保有失誤率欄位可供加權計算
+                            if 'miss_rate' in user_raw_df.columns:
+                                user_raw_df['miss_rate_calc'] = pd.to_numeric(user_raw_df['miss_rate'], errors='coerce').fillna(0)
+                                # 如果 miss_rate 大於 1.0，代表它是用 0-100 的格式儲存，需換算回 0-1 的小數以便當權重
+                                if user_raw_df['miss_rate_calc'].max() > 1.0:
+                                    user_raw_df['miss_rate_calc'] = user_raw_df['miss_rate_calc'] / 100.0
+                            else:
+                                user_raw_df['miss_rate_calc'] = 0.0
                             
                             for i in range(3):
                                 for j in range(3):
                                     col = grid_mapping[i][j]
                                     if col in user_raw_df.columns:
-                                        # 轉為數值，若有字串會變為 NaN
                                         vals = pd.to_numeric(user_raw_df[col], errors='coerce')
-                                        # 排除 -1 (代表當初輸入時選擇「無資料」)
-                                        valid_vals = vals[vals >= 0] 
-                                        if not valid_vals.empty:
-                                            grid_scores[i, j] = valid_vals.mean()
-                                        else:
-                                            grid_scores[i, j] = np.nan
-                                    else:
-                                        grid_scores[i, j] = np.nan
+                                        valid_mask = vals >= 0 # 排除 -1 (無資料)
                                         
-                            if np.isnan(grid_scores).all():
-                                st.info("💡 該選手目前尚無足夠的九宮格空間數據。")
+                                        if valid_mask.any():
+                                            has_valid_data = True
+                                            
+                                            # 1. 非線性權重：較差(0)->3點, 尚可(1)->1點, 良好(2)->0點
+                                            # 使用 np.where 來做條件轉換：如果值是 0 給 3，是 1 給 1，其他(2) 給 0
+                                            base_weights = np.where(vals[valid_mask] == 0, 3, np.where(vals[valid_mask] == 1, 1, 0))
+
+                                            # 2. 乘上「實際失誤發數 (miss_count)」代替失誤率，讓大樣本場次更有代表性
+                                            session_miss_counts = pd.to_numeric(user_raw_df.loc[valid_mask, 'miss_count'], errors='coerce').fillna(0)
+
+                                            #3. 如果該場 0 失誤，但教練仍評了「較差/尚可」，給予保底權重 0.5 避免瑕疵紀錄被歸零
+                                            session_miss_counts = np.maximum(session_miss_counts, 0.5)
+
+                                            # 加權公式：非線性點數 * (實際失誤數或保底值)
+                                            weighted_intensity = (base_weights * session_miss_counts).sum()
+                                            
+                                            zone_intensities[i, j] = weighted_intensity
+                                            total_miss_intensity += weighted_intensity
+                                            
+                            if not has_valid_data or total_miss_intensity == 0:
+                                st.info("💡 該選手目前尚無足夠的九宮格空間數據，或所有場次皆無失誤。")
                             else:
-                                # 將 NumPy 陣列轉為 DataFrame，設定索引以顯示成 3x3 棋盤
+                                # 計算佔比
+                                grid_scores = (zone_intensities / total_miss_intensity) * 100.0
+                                
                                 df_grid = pd.DataFrame(
                                     grid_scores,
                                     index=['上 (High)', '中 (Mid)', '下 (Low)'],
                                     columns=['左 (Left)', '正中 (Center)', '右 (Right)']
                                 )
                                 
-                                # 自訂上色規則 
-                                def color_rules(val):
+                                # 上色規則 
+                                def color_rules_pct(val):
                                     if pd.isna(val):
                                         return ""
-                                    elif val < 0.7:
-                                        return "background-color: #ffcccc; color: #990000;" # 較差 (淺紅)
-                                    elif val <= 1.4:
-                                        return "background-color: #ffffcc; color: #888800;" # 尚可 (淺黃)
+                                    elif val >= 20.0:
+                                        return "background-color: #ffcccc; color: #990000;" # 佔比>=20% (淺紅)
+                                    elif val >= 10.0:
+                                        return "background-color: #ffffcc; color: #888800;" # 佔比10~20% (淺黃)
+                                    elif val > 0.0:
+                                        return "background-color: #ccffcc; color: #006600;" # 佔比<10% (淺綠)
                                     else:
-                                        return "background-color: #ccffcc; color: #006600;" # 良好 (淺綠)
+                                        return "background-color: #f8f9fa; color: #6c757d;" # 佔比 0% (灰)
 
-                                styled_grid = df_grid.style.format("{:.1f}", na_rep="無資料").map(color_rules)
+                                styled_grid = df_grid.style.format("{:.1f}%", na_rep="無資料").map(color_rules_pct)
                                 
-                                # 呈現於畫面上
                                 st.dataframe(styled_grid, use_container_width=True)
 
                             # =========================================================
