@@ -3,12 +3,13 @@ import cv2
 import pandas as pd
 import numpy as np
 from datetime import datetime
-from processor import DataProcessor
+from processor import DataProcessor, SHOOTING_FIELD_MAP  # 引入字典供中文映射使用
 import database
 from ocr_module import process_ocr_and_heatmap, calculate_sleep_duration
 
 def render_page():
     st.title(" 不定向飛靶成績與日常生活紀錄")
+
     # 初始化 Session State 狀態控制鎖
     #if "ocr_result_cache" not in st.session_state:
     #   st.session_state["ocr_result_cache"] = None
@@ -22,12 +23,18 @@ def render_page():
         st.success("🎉 資料已成功結構化，並即時同步至雲端 Google Sheets！")
         
         # 顯示剛剛上傳成功的暫存結果
+        # 將顯示的欄位資料名稱映射回中文
         if "last_clean_df" in st.session_state:
+            reverse_map = {v: k for k, v in SHOOTING_FIELD_MAP.items()}
+            raw_cols = st.session_state["last_clean_df"].columns.tolist()
+            zh_cols = [reverse_map.get(col, col) for col in raw_cols] # 找不到對應的維持原樣
+
             display_df = pd.DataFrame({
-                "欄位": st.session_state["last_clean_df"].columns.tolist(),
-                "數值": [str(v) for v in st.session_state["last_clean_df"].iloc[0].tolist()]
+                "欄位名稱 (中文)": zh_cols,
+                "系統對應 (英文)": raw_cols,
+                "紀錄數值": [str(v) for v in st.session_state["last_clean_df"].iloc[0].tolist()]
             })
-            st.dataframe(display_df, height=300)
+            st.dataframe(display_df, height=350, use_container_width=True)
 
         st.markdown("---")
         if st.button("🔄 上傳其他成績單", type="primary"):

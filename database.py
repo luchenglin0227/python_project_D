@@ -58,8 +58,47 @@ def insert_record(clean_df: pd.DataFrame) -> bool:
     except Exception as e:
         st.error(f"❌ 雲端資料寫入失敗: {e}")
         return False
+    
+# 刪除單筆歷史紀錄
+def delete_record(user_id: str, created_at: str) -> bool:
+    """根據 user_id 和 created_at 時間戳記刪除特定的歷史紀錄"""
+    conn = _get_gsheets_conn()
+    if conn is None:
+        return False
+        
+    try:
+        # 1.讀取目前現有的所有紀錄
+        existing_df = conn.read(worksheet=WORKSHEET_NAME, ttl=0)
+        if existing_df.empty:
+            return False
 
-# 💡 【關鍵修正】加上 cache_data 裝飾器，這樣別的頁面才能使用 .clear() 清除此函式的快取
+        # 2.找到要刪除的資料並過濾掉 (反向選取保留的資料)
+        mask = (existing_df["user_id"] == user_id) & (existing_df["created_at"] == created_at)
+        if not mask.any():
+            return True  # 沒找到代表已經被刪除了
+            
+        updated_df = existing_df[~mask]
+
+        # 3.為了防止 Streamlit GSheets 寫入時留下舊的資料，建議先清空再覆寫
+        try:
+            conn.clear(worksheet=WORKSHEET_NAME)
+        except Exception:
+            pass # 部分舊版本不支援 clear，直接放行交由 update 覆寫
+            
+        # 4. 重新把剔除後的資料寫回雲端
+        if not updated_df.empty:
+            conn.update(worksheet=WORKSHEET_NAME, data=updated_df)
+        else:
+            # 如果資料砍到一筆不剩，補一張只有欄位名稱的空表回去
+            empty_df = pd.DataFrame(columns=existing_df.columns)
+            conn.update(worksheet=WORKSHEET_NAME, data=empty_df)
+            
+        return True
+    except Exception as e:
+        st.error(f"❌ 雲端資料刪除失敗: {e}")
+        return False
+
+# 加上 cache_data 裝飾器，這樣別的頁面才能使用 .clear() 清除此函式的快取
 @st.cache_data(ttl=0)
 def load_records(user_id: str = None) -> pd.DataFrame:
     """
