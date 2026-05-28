@@ -1,11 +1,11 @@
 import streamlit as st
 import pandas as pd
+import numpy as np  # 📌 新增 numpy 以利九宮格矩陣運算
 import database
-import numpy as np  # 新增 numpy 以利九宮格矩陣運算
 from processor import SHOOTING_FIELD_MAP
 
 def render_page():
-    st.title("選手歷史歷程與數據分析看板")
+    st.title("📊 選手歷史歷程與數據分析看板")
     
     # 製作簡易密碼鎖
     admin_password = st.text_input("🔒 查看數據分析請輸入後台管理密碼：", type="password")
@@ -150,7 +150,7 @@ def render_page():
                                     st.warning("⚠️ 警告：此動作無法復原，確定要刪除這筆資料嗎？")
                                     c_yes, c_no = st.columns(2)
                                     if c_yes.button("✅ 確定刪除", type="primary"):
-                                    
+                                        
                                         # 將 iloc 換成 loc，使用絕對標籤定位，精準刪除
                                         target_row = raw_df.loc[selected_idx] 
                                         t_user = str(target_row[actual_user_col])
@@ -202,7 +202,7 @@ def render_page():
                                     dkpi1.metric("個人平均 Hit Rate (總命中率)", f"{avg_hit_rate:.2%}")
                                     dkpi2.metric("個人平均 Miss Rate (失誤率)", f"{avg_miss_rate:.2%}")
 
-                                    st.markdown("##### 個人歷史表現趨勢 (Performance Trend)")
+                                    st.markdown("##### 📌 個人歷史表現趨勢 (Performance Trend)")
                                     date_col = None
                                     for eng, zh in SHOOTING_FIELD_MAP.items():
                                         if "日期" in eng or "date" in zh:
@@ -222,9 +222,9 @@ def render_page():
                             else:
                                 st.info("💡 該選手目前尚無足夠的命中率數據生成歷史趨勢圖。")
 
-                            # 新增：九宮格空間表現熱區 (Heatmap)
+                            # 📌 亮點新增：九宮格空間表現熱區 (Heatmap)
                             st.markdown("---")
-                            st.subheader(" 九宮格失誤熱區 (綜合平均評分)")
+                            st.subheader("🎯 九宮格失誤熱區 (綜合平均評分)")
                             st.caption("數值範圍：0.0 (較差/常失誤) ~ 2.0 (良好/少失誤)。背景顏色越紅代表該方位失誤率越高。")
                             
                             grid_mapping = [
@@ -266,7 +266,8 @@ def render_page():
                                 
                                 # 呈現於畫面上
                                 st.dataframe(styled_grid, use_container_width=True)
-                            
+
+                            # =========================================================
                             st.markdown("---")
                             st.subheader("進階交叉分析 (生活作息 vs 射擊表現)")
                                 
