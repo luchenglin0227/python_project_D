@@ -78,13 +78,16 @@ def render_page():
                     # =========================================================
                     # 選手確認區塊：必須點擊按鈕，才會顯示下方的兩個分頁
                     # =========================================================
-                    st.header("🎯 選擇分析對象")
+                    st.header("選擇分析對象")
                     all_users = sorted(display_df[user_col_zh].dropna().unique().tolist())
                     selected_user = st.selectbox("請先選取選手：", all_users)
                     
                     # 選手確認按鈕
-                    if st.button("✅ 確認載入此選手資料", type="primary"):
-                        st.session_state["confirmed_user"] = selected_user
+                    col_btn, _ = st.columns([2, 8])
+                    with col_btn:
+                        # 選手確認按鈕 (精簡文字使其更加俐落)
+                        if st.button("確認載入", type="primary", use_container_width=True):
+                            st.session_state["confirmed_user"] = selected_user
 
                     # 只有在「已經確認過」的狀態下，才會把兩個 Tabs 放出來
                     if "confirmed_user" in st.session_state and st.session_state["confirmed_user"] in all_users:
@@ -103,11 +106,11 @@ def render_page():
                         #  分頁 1：歷史資料庫管理與刪除
                         # ==========================================
                         with tab_db:
-                            st.subheader(f"📂 {active_user} 的個人完整歷史資料庫")
+                            st.subheader(f"{active_user} 的個人完整歷史資料庫")
                             st.dataframe(user_filtered_display_df.drop(columns=['系統內部序號'], errors='ignore'), use_container_width=True)
                             
                             st.markdown("---")
-                            st.subheader("🔍 查看與管理單筆詳細數據")
+                            st.subheader("查看與管理單筆詳細數據")
 
                             # 設立兩個篩選欄位
                             filter_col2, filter_col3 = st.columns(2)
@@ -143,11 +146,11 @@ def render_page():
                                 
                                 # 刪除功能與警告按鈕
                                 st.markdown("<br>", unsafe_allow_html=True)
-                                if st.button("🗑️ 刪除此筆紀錄"):
+                                if st.button("刪除此筆紀錄"):
                                     st.session_state.delete_confirm_idx = selected_idx
                                     
                                 if st.session_state.get("delete_confirm_idx") == selected_idx:
-                                    st.warning("⚠️ 警告：此動作無法復原，確定要刪除這筆資料嗎？")
+                                    st.warning("⚠️警告：此動作無法復原，確定要刪除這筆資料嗎？")
                                     c_yes, c_no = st.columns(2)
                                     if c_yes.button("✅ 確定刪除", type="primary"):
                                         
@@ -202,7 +205,7 @@ def render_page():
                                     dkpi1.metric("個人平均 Hit Rate (總命中率)", f"{avg_hit_rate:.2%}")
                                     dkpi2.metric("個人平均 Miss Rate (失誤率)", f"{avg_miss_rate:.2%}")
 
-                                    st.markdown("##### 📌 個人歷史表現趨勢 (Performance Trend)")
+                                    st.markdown("##### 個人歷史表現趨勢 (Performance Trend)")
                                     date_col = None
                                     for eng, zh in SHOOTING_FIELD_MAP.items():
                                         if "日期" in eng or "date" in zh:
@@ -226,7 +229,7 @@ def render_page():
                             # 九宮格熱區 (HTML/CSS 強制排版版)
                             # =========================================================
                             st.markdown("---")
-                            st.subheader("🎯 九宮格失誤熱區 (失誤權重佔比 %)")
+                            st.subheader("九方位失誤熱區圖")
                             st.caption("數值代表各方位佔整體失誤的百分比，九宮格總和為 100%。\n\n*(💡 此佔比已根據「每次練習的實際失誤率」進行加權計算，失誤越嚴重的場次，其該方位的失誤權重越高)*")
                             
                             grid_mapping = [
