@@ -85,8 +85,7 @@ def render_page():
                     # 選手確認按鈕
                     col_btn, _ = st.columns([2, 8])
                     with col_btn:
-                        # 選手確認按鈕 (精簡文字使其更加俐落)
-                        if st.button("確認載入", type="primary", use_container_width=True):
+                        if st.button("✅ 確認載入", use_container_width=True):
                             st.session_state["confirmed_user"] = selected_user
 
                     # 只有在「已經確認過」的狀態下，才會把兩個 Tabs 放出來
