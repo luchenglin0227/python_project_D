@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import database
+import numpy as np  # 新增 numpy 以利九宮格矩陣運算
 from processor import SHOOTING_FIELD_MAP
 
 def render_page():
@@ -220,6 +221,51 @@ def render_page():
                                     st.info("💡 趨勢圖表正在等待更多標準格式數據累積中...")
                             else:
                                 st.info("💡 該選手目前尚無足夠的命中率數據生成歷史趨勢圖。")
+
+                            # 新增：九宮格空間表現熱區 (Heatmap)
+                            st.markdown("---")
+                            st.subheader(" 九宮格失誤熱區 (綜合平均評分)")
+                            st.caption("數值範圍：0.0 (較差/常失誤) ~ 2.0 (良好/少失誤)。背景顏色越紅代表該方位失誤率越高。")
+                            
+                            grid_mapping = [
+                                ['miss_left_high', 'miss_middle_high', 'miss_right_high'],
+                                ['miss_left_mid',  'miss_middle_mid',  'miss_right_mid'],
+                                ['miss_left_low',  'miss_middle_low',  'miss_right_low']
+                            ]
+                            grid_scores = np.zeros((3, 3))
+                            
+                            for i in range(3):
+                                for j in range(3):
+                                    col = grid_mapping[i][j]
+                                    if col in user_raw_df.columns:
+                                        # 轉為數值，若有字串會變為 NaN
+                                        vals = pd.to_numeric(user_raw_df[col], errors='coerce')
+                                        # 排除 -1 (代表當初輸入時選擇「無資料」)
+                                        valid_vals = vals[vals >= 0] 
+                                        if not valid_vals.empty:
+                                            grid_scores[i, j] = valid_vals.mean()
+                                        else:
+                                            grid_scores[i, j] = np.nan
+                                    else:
+                                        grid_scores[i, j] = np.nan
+                                        
+                            if np.isnan(grid_scores).all():
+                                st.info("💡 該選手目前尚無足夠的九宮格空間數據。")
+                            else:
+                                # 將 NumPy 陣列轉為 DataFrame，設定索引以顯示成 3x3 棋盤
+                                df_grid = pd.DataFrame(
+                                    grid_scores,
+                                    index=['上 (High)', '中 (Mid)', '下 (Low)'],
+                                    columns=['左 (Left)', '正中 (Center)', '右 (Right)']
+                                )
+                                
+                                # 使用 Pandas Style 的紅-黃-綠漸層上色
+                                # vmin=0(紅色), vmax=2(綠色) 對齊原本 status_values 的定義
+                                styled_grid = df_grid.style.format("{:.1f}", na_rep="無資料") \
+                                                   .background_gradient(cmap='RdYlGn', vmin=0, vmax=2)
+                                
+                                # 呈現於畫面上
+                                st.dataframe(styled_grid, use_container_width=True)
                             
                             st.markdown("---")
                             st.subheader("進階交叉分析 (生活作息 vs 射擊表現)")
