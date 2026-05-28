@@ -4,7 +4,7 @@ import database
 from processor import SHOOTING_FIELD_MAP
 
 def render_page():
-    st.title("📊 選手歷史歷程與數據分析看板")
+    st.title("選手歷史歷程與數據分析看板")
     
     # 製作簡易密碼鎖
     admin_password = st.text_input("🔒 查看數據分析請輸入後台管理密碼：", type="password")
