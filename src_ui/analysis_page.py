@@ -222,7 +222,7 @@ def render_page():
                             else:
                                 st.info("💡 該選手目前尚無足夠的命中率數據生成歷史趨勢圖。")
 
-                            # 📌 亮點新增：九宮格空間表現熱區 (Heatmap)
+                            # 九宮格空間表現熱區 (Heatmap)
                             st.markdown("---")
                             st.subheader("🎯 九宮格失誤熱區 (綜合平均評分)")
                             st.caption("數值範圍：0.0 (較差/常失誤) ~ 2.0 (良好/少失誤)。背景顏色越紅代表該方位失誤率越高。")
@@ -259,10 +259,18 @@ def render_page():
                                     columns=['左 (Left)', '正中 (Center)', '右 (Right)']
                                 )
                                 
-                                # 使用 Pandas Style 的紅-黃-綠漸層上色
-                                # vmin=0(紅色), vmax=2(綠色) 對齊原本 status_values 的定義
-                                styled_grid = df_grid.style.format("{:.1f}", na_rep="無資料") \
-                                                   .background_gradient(cmap='RdYlGn', vmin=0, vmax=2)
+                                # 自訂上色規則 
+                                def color_rules(val):
+                                    if pd.isna(val):
+                                        return ""
+                                    elif val < 0.7:
+                                        return "background-color: #ffcccc; color: #990000;" # 較差 (淺紅)
+                                    elif val <= 1.4:
+                                        return "background-color: #ffffcc; color: #888800;" # 尚可 (淺黃)
+                                    else:
+                                        return "background-color: #ccffcc; color: #006600;" # 良好 (淺綠)
+
+                                styled_grid = df_grid.style.format("{:.1f}", na_rep="無資料").map(color_rules)
                                 
                                 # 呈現於畫面上
                                 st.dataframe(styled_grid, use_container_width=True)
