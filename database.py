@@ -72,8 +72,12 @@ def delete_record(user_id: str, created_at: str) -> bool:
         if existing_df.empty:
             return False
 
+        # 強制將用來比對的兩個欄位轉成字串，防止 Pandas 型別不相容導致找不到資料
+        existing_df["user_id"] = existing_df["user_id"].astype(str)
+        existing_df["created_at"] = existing_df["created_at"].astype(str)
+
         # 2.找到要刪除的資料並過濾掉 (反向選取保留的資料)
-        mask = (existing_df["user_id"] == user_id) & (existing_df["created_at"] == created_at)
+        mask = (existing_df["user_id"] == str(user_id)) & (existing_df["created_at"] == str(created_at))
         if not mask.any():
             return True  # 沒找到代表已經被刪除了
             

@@ -74,171 +74,185 @@ def render_page():
                     else:
                         actual_user_col = user_col_zh
                     
-                    # 先行篩選區：先選擇選手
+                   
+                    # 新增選手確認按鈕，確認後才展開 Tabs
                     st.header("🎯 選擇分析對象")
                     all_users = sorted(display_df[user_col_zh].dropna().unique().tolist())
                     selected_user = st.selectbox("請先選取選手：", all_users)
-                    user_filtered_display_df = display_df[display_df[user_col_zh] == selected_user]
-
-                    # 使用 Tabs 將資料庫管理與圖表分析切開
-                    tab_db, tab_ana = st.tabs(["🗄️ 歷史資料庫與管理", "📈 選手數據分析看板"])
                     
-                    # ==========================================
-                    #  分頁 1：歷史資料庫管理與刪除
-                    # ==========================================
-                    with tab_db:
-                        st.subheader(f"📂 {selected_user} 的個人完整歷史資料庫")
-                        st.dataframe(user_filtered_display_df.drop(columns=['系統內部序號'], errors='ignore'), use_container_width=True)
+                    if st.button("✅ 確認載入此選手資料", type="primary"):
+                        st.session_state["confirmed_user"] = selected_user
+
+                    # 只有在有確認過的選手存在 Session State 時，才會跑出兩個分頁
+                    if "confirmed_user" in st.session_state and st.session_state["confirmed_user"] in all_users:
+                        active_user = st.session_state["confirmed_user"]
                         
-                        st.markdown("---")
-                        st.subheader("🔍 查看單筆詳細數據")
+                        # 貼心提示：如果下拉選單切換了但還沒按確認，提醒使用者
+                        if active_user != selected_user:
+                            st.info(f"💡 目前下方顯示的是 **{active_user}** 的資料。若要查看 **{selected_user}** 的資料，請點擊上方「確認載入」按鈕。")
+                            
+                        user_filtered_display_df = display_df[display_df[user_col_zh] == active_user]
 
-                    # 設立兩個篩選欄位
-                    filter_col2, filter_col3 = st.columns(2)
-                    with filter_col2:
-                        all_dates = sorted(user_filtered_display_df[date_col_zh].dropna().unique().tolist(), reverse=True)
-                        selected_date = st.selectbox("選擇要檢視的訓練日期：", all_dates) if all_dates else None
-                    
-                    if selected_date:
-                            date_filtered_df = user_filtered_display_df[user_filtered_display_df[date_col_zh] == selected_date]
-                            with filter_col3:
-                                time_options = []
-                                for _, row in date_filtered_df.iterrows():
-                                    c_val = row.get(created_col_zh, "未知時間")
-                                    idx_val = row['系統內部序號']
-                                    time_options.append(f"紀錄時間：{c_val} (序號: {idx_val})")
-                                selected_time_str = st.selectbox("選擇紀錄時間：", time_options)
+                        # 使用 Tabs 將資料庫管理與圖表分析切開
+                        tab_db, tab_ana = st.tabs(["🗄️ 歷史資料庫與管理", "📈 選手數據分析看板"])
+                        
+                        # ==========================================
+                        #  分頁 1：歷史資料庫管理與刪除
+                        # ==========================================
+                        with tab_db:
+                            st.subheader(f"📂 {active_user} 的個人完整歷史資料庫")
+                            st.dataframe(user_filtered_display_df.drop(columns=['系統內部序號'], errors='ignore'), use_container_width=True)
                             
-                            selected_idx = int(selected_time_str.split("(序號: ")[1].replace(")", ""))
-                            selected_row = display_df[display_df['系統內部序號'] == selected_idx].iloc[0]
+                            st.markdown("---")
+                            st.subheader("🔍 查看單筆詳細數據")
+
+                            # 設立兩個篩選欄位
+                            filter_col2, filter_col3 = st.columns(2)
+                            with filter_col2:
+                                all_dates = sorted(user_filtered_display_df[date_col_zh].dropna().unique().tolist(), reverse=True)
+                                selected_date = st.selectbox("選擇要檢視的訓練日期：", all_dates) if all_dates else None
                             
-                            with st.container(border=True):
-                                col_d1, col_d2 = st.columns(2)
-                                items = [(k, v) for k, v in selected_row.items() if k != '系統內部序號']
-                                mid = (len(items) + 1) // 2
-                                with col_d1:
-                                    for key, val in items[:mid]:
-                                        if str(key).lower() in ['index', 'id']: continue
-                                        st.write(f"**📌 {key}** : `{val}`")
-                                with col_d2:
-                                    for key, val in items[mid:]:
-                                        if str(key).lower() in ['index', 'id']: continue
-                                        st.write(f"**📌 {key}** : `{val}`")
-                           
-                            # 新增刪除功能與警告按鈕
-                            st.markdown("<br>", unsafe_allow_html=True)
-                            if st.button("🗑️ 刪除此筆紀錄"):
-                                st.session_state.delete_confirm_idx = selected_idx
+                            if selected_date:
+                                date_filtered_df = user_filtered_display_df[user_filtered_display_df[date_col_zh] == selected_date]
+                                with filter_col3:
+                                    time_options = []
+                                    for _, row in date_filtered_df.iterrows():
+                                        c_val = row.get(created_col_zh, "未知時間")
+                                        idx_val = row['系統內部序號']
+                                        time_options.append(f"紀錄時間：{c_val} (序號: {idx_val})")
+                                    selected_time_str = st.selectbox("選擇紀錄時間：", time_options)
                                 
-                            if st.session_state.get("delete_confirm_idx") == selected_idx:
-                                st.warning("⚠️ 警告：此動作無法復原，確定要刪除這筆資料嗎？")
-                                c_yes, c_no = st.columns(2)
-                                if c_yes.button("✅ 確定刪除", type="primary"):
-                                    # 精確抓取要刪除的 user_id 與 timestamp
-                                    target_row = raw_df.iloc[selected_idx]
-                                    t_user = target_row[actual_user_col]
-                                    t_created = target_row['created_at']
+                                selected_idx = int(selected_time_str.split("(序號: ")[1].replace(")", ""))
+                                selected_row = display_df[display_df['系統內部序號'] == selected_idx].iloc[0]
+                                
+                                with st.container(border=True):
+                                    col_d1, col_d2 = st.columns(2)
+                                    items = [(k, v) for k, v in selected_row.items() if k != '系統內部序號']
+                                    mid = (len(items) + 1) // 2
+                                    with col_d1:
+                                        for key, val in items[:mid]:
+                                            if str(key).lower() in ['index', 'id']: continue
+                                            st.write(f"**📌 {key}** : `{val}`")
+                                    with col_d2:
+                                        for key, val in items[mid:]:
+                                            if str(key).lower() in ['index', 'id']: continue
+                                            st.write(f"**📌 {key}** : `{val}`")
+                            
+                                # 新增刪除功能與警告按鈕
+                                st.markdown("<br>", unsafe_allow_html=True)
+                                if st.button("🗑️ 刪除此筆紀錄"):
+                                    st.session_state.delete_confirm_idx = selected_idx
                                     
-                                    with st.spinner("正在從雲端移除資料，請稍候..."):
-                                        success = database.delete_record(t_user, t_created)
-                                        if success:
-                                            st.success("🗑️ 刪除成功！")
-                                            st.session_state.delete_confirm_idx = None
-                                            database.load_records.clear() # 清除快取以抓取最新狀態
-                                            st.rerun()
-                                        else:
-                                            st.error("❌ 刪除失敗，請檢查網路連線或金鑰。")
-                                            
-                                if c_no.button("❌ 點此取消"):
-                                    st.session_state.delete_confirm_idx = None
-                                    st.rerun()
-                    # =============================================================
-                    # 分頁 2：視覺化數據分析看板
-                    # =============================================================
-                    with tab_ana:
-                        st.subheader(f"📈 選手 {selected_user} 表現分析看板")
-                        
-                        user_raw_df = raw_df[raw_df[actual_user_col] == selected_user].copy()
-                        user_raw_df = user_raw_df.rename(columns=SHOOTING_FIELD_MAP)
-                        
-                        hit_rate_col = None
-                        for col in ['hit_rate', '總命中率']:
-                            if col in user_raw_df.columns:
-                                hit_rate_col = col
-                                break
-                        if not hit_rate_col:
-                            for col in user_raw_df.columns:
-                                if "命中率" in str(col) or "rate" in str(col).lower():
+                                if st.session_state.get("delete_confirm_idx") == selected_idx:
+                                    st.warning("⚠️ 警告：此動作無法復原，確定要刪除這筆資料嗎？")
+                                    c_yes, c_no = st.columns(2)
+                                    if c_yes.button("✅ 確定刪除", type="primary"):
+                                        
+                                        # 將 .iloc 改為 .loc，精確抓取正確的資料行
+                                        target_row = raw_df.loc[selected_idx] 
+                                        t_user = str(target_row[actual_user_col])
+                                        t_created = str(target_row['created_at'])
+                                        
+                                        with st.spinner("正在從雲端移除資料，請稍候..."):
+                                            success = database.delete_record(t_user, t_created)
+                                            if success:
+                                                st.success("🗑️ 刪除成功！")
+                                                st.session_state.delete_confirm_idx = None
+                                                database.load_records.clear() # 清除快取以抓取最新狀態
+                                                st.rerun()
+                                            else:
+                                                st.error("❌ 刪除失敗，請檢查網路連線或金鑰。")
+                                                
+                                    if c_no.button("❌ 點此取消"):
+                                        st.session_state.delete_confirm_idx = None
+                                        st.rerun()
+                        # =============================================================
+                        # 分頁 2：視覺化數據分析看板
+                        # =============================================================
+                        with tab_ana:
+                            st.subheader(f"📈 選手 {active_user} 表現分析看板")
+                            
+                            user_raw_df = raw_df[raw_df[actual_user_col] == active_user].copy()
+                            user_raw_df = user_raw_df.rename(columns=SHOOTING_FIELD_MAP)
+                            
+                            hit_rate_col = None
+                            for col in ['hit_rate', '總命中率']:
+                                if col in user_raw_df.columns:
                                     hit_rate_col = col
                                     break
-                                
-                        if hit_rate_col in user_raw_df.columns and not user_raw_df.empty:
-                            try:
-                                valid_rates = pd.to_numeric(user_raw_df[hit_rate_col], errors='coerce').dropna()
-                                avg_hit_rate = valid_rates.mean()
-                                
-                                if avg_hit_rate > 1.0:
-                                    avg_hit_rate = avg_hit_rate / 100.0
-                                avg_miss_rate = 1.0 - avg_hit_rate
-
-                                dkpi1, dkpi2 = st.columns(2)
-                                dkpi1.metric("個人平均 Hit Rate (總命中率)", f"{avg_hit_rate:.2%}")
-                                dkpi2.metric("個人平均 Miss Rate (失誤率)", f"{avg_miss_rate:.2%}")
-
-                                st.markdown("##### 📌 個人歷史表現趨勢 (Performance Trend)")
-                                date_col = None
-                                for eng, zh in SHOOTING_FIELD_MAP.items():
-                                    if "日期" in eng or "date" in zh:
-                                        date_col = zh
+                            if not hit_rate_col:
+                                for col in user_raw_df.columns:
+                                    if "命中率" in str(col) or "rate" in str(col).lower():
+                                        hit_rate_col = col
                                         break
-                                
-                                if date_col in user_raw_df.columns:
-                                    user_raw_df["parsed_date"] = pd.to_datetime(user_raw_df[date_col]).dt.date
-                                    user_raw_df[hit_rate_col] = pd.to_numeric(user_raw_df[hit_rate_col], errors='coerce')
-                                    if user_raw_df[hit_rate_col].mean() > 1.0:
-                                        user_raw_df[hit_rate_col] = user_raw_df[hit_rate_col] / 100.0
-                                        
-                                    trend_data = user_raw_df.groupby("parsed_date")[hit_rate_col].mean()
-                                    st.line_chart(trend_data)
-                            except Exception:
-                                st.info("💡 趨勢圖表正在等待更多標準格式數據累積中...")
-                        else:
-                            st.info("💡 該選手目前尚無足夠的命中率數據生成歷史趨勢圖。")
-                        
-                        st.markdown("---")
-                        st.subheader("進階交叉分析 (生活作息 vs 射擊表現)")
+                                    
+                            if hit_rate_col in user_raw_df.columns and not user_raw_df.empty:
+                                try:
+                                    valid_rates = pd.to_numeric(user_raw_df[hit_rate_col], errors='coerce').dropna()
+                                    avg_hit_rate = valid_rates.mean()
+                                    
+                                    if avg_hit_rate > 1.0:
+                                        avg_hit_rate = avg_hit_rate / 100.0
+                                    avg_miss_rate = 1.0 - avg_hit_rate
+
+                                    dkpi1, dkpi2 = st.columns(2)
+                                    dkpi1.metric("個人平均 Hit Rate (總命中率)", f"{avg_hit_rate:.2%}")
+                                    dkpi2.metric("個人平均 Miss Rate (失誤率)", f"{avg_miss_rate:.2%}")
+
+                                    st.markdown("#####  個人歷史表現趨勢 (Performance Trend)")
+                                    date_col = None
+                                    for eng, zh in SHOOTING_FIELD_MAP.items():
+                                        if "日期" in eng or "date" in zh:
+                                            date_col = zh
+                                            break
+                                    
+                                    if date_col in user_raw_df.columns:
+                                        user_raw_df["parsed_date"] = pd.to_datetime(user_raw_df[date_col]).dt.date
+                                        user_raw_df[hit_rate_col] = pd.to_numeric(user_raw_df[hit_rate_col], errors='coerce')
+                                        if user_raw_df[hit_rate_col].mean() > 1.0:
+                                            user_raw_df[hit_rate_col] = user_raw_df[hit_rate_col] / 100.0
+                                            
+                                        trend_data = user_raw_df.groupby("parsed_date")[hit_rate_col].mean()
+                                        st.line_chart(trend_data)
+                                except Exception:
+                                    st.info("💡 趨勢圖表正在等待更多標準格式數據累積中...")
+                            else:
+                                st.info("💡 該選手目前尚無足夠的命中率數據生成歷史趨勢圖。")
                             
-                        ana_col1, ana_col2 = st.columns(2)
-                        with ana_col1:
-                            st.write("**🌙 睡眠時長 vs 平均命中率 (%)**")
-                            if 'sleep_duration' in user_raw_df.columns and 'hit_rate' in user_raw_df.columns:
-                                user_raw_df['sleep_duration'] = pd.to_numeric(user_raw_df['sleep_duration'], errors='coerce')
-                                user_raw_df['sleep_group'] = user_raw_df['sleep_duration'].round()
-                                        
-                                hit_data = pd.to_numeric(user_raw_df['hit_rate'], errors='coerce')
-                                if hit_data.mean() <= 1.0:
-                                    hit_data = hit_data * 100
-                                user_raw_df['hit_rate_pct'] = hit_data
-                                        
-                                sleep_trend = user_raw_df.groupby('sleep_group')['hit_rate_pct'].mean()
-                                st.line_chart(sleep_trend)
-                            else:
-                                st.info("💡 累積更多睡眠數據後將自動顯示圖表。")
-        
-                        with ana_col2:
-                            st.write("**⚡ 賽前緊張程度 vs 平均失誤率 (%)**")
-                            if 'tension_level' in user_raw_df.columns and 'miss_rate' in user_raw_df.columns:
-                                user_raw_df['tension_level'] = pd.to_numeric(user_raw_df['tension_level'], errors='coerce')
+                            st.markdown("---")
+                            st.subheader("進階交叉分析 (生活作息 vs 射擊表現)")
                                 
-                                miss_data = pd.to_numeric(user_raw_df['miss_rate'], errors='coerce')
-                                if miss_data.mean() <= 1.0:
-                                    miss_data = miss_data * 100
-                                user_raw_df['miss_rate_pct'] = miss_data
-                                
-                                tension_trend = user_raw_df.groupby('tension_level')['miss_rate_pct'].mean()
-                                st.bar_chart(tension_trend)
-                            else:
-                                st.info("💡 累積更多緊張程度數據後將自動顯示圖表。")
+                            ana_col1, ana_col2 = st.columns(2)
+                            with ana_col1:
+                                st.write("**🌙 睡眠時長 vs 平均命中率 (%)**")
+                                if 'sleep_duration' in user_raw_df.columns and 'hit_rate' in user_raw_df.columns:
+                                    user_raw_df['sleep_duration'] = pd.to_numeric(user_raw_df['sleep_duration'], errors='coerce')
+                                    user_raw_df['sleep_group'] = user_raw_df['sleep_duration'].round()
+                                            
+                                    hit_data = pd.to_numeric(user_raw_df['hit_rate'], errors='coerce')
+                                    if hit_data.mean() <= 1.0:
+                                        hit_data = hit_data * 100
+                                    user_raw_df['hit_rate_pct'] = hit_data
+                                            
+                                    sleep_trend = user_raw_df.groupby('sleep_group')['hit_rate_pct'].mean()
+                                    st.line_chart(sleep_trend)
+                                else:
+                                    st.info("💡 累積更多睡眠數據後將自動顯示圖表。")
+            
+                            with ana_col2:
+                                st.write("**⚡ 賽前緊張程度 vs 平均失誤率 (%)**")
+                                if 'tension_level' in user_raw_df.columns and 'miss_rate' in user_raw_df.columns:
+                                    user_raw_df['tension_level'] = pd.to_numeric(user_raw_df['tension_level'], errors='coerce')
+                                    
+                                    miss_data = pd.to_numeric(user_raw_df['miss_rate'], errors='coerce')
+                                    if miss_data.mean() <= 1.0:
+                                        miss_data = miss_data * 100
+                                    user_raw_df['miss_rate_pct'] = miss_data
+                                    
+                                    tension_trend = user_raw_df.groupby('tension_level')['miss_rate_pct'].mean()
+                                    st.bar_chart(tension_trend)
+                                else:
+                                    st.info("💡 累積更多緊張程度數據後將自動顯示圖表。")
                 else:
                     st.warning("📭 雲端目前沒有任何紀錄。")
                 
