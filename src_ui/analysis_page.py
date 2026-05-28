@@ -223,7 +223,7 @@ def render_page():
                                 st.info("💡 該選手目前尚無足夠的命中率數據生成歷史趨勢圖。")
 
                             # =========================================================
-                            # 📌 亮點修改：九宮格空間表現熱區 (結合當次失誤率加權)
+                            # 九宮格熱區 (HTML/CSS 強制排版版)
                             # =========================================================
                             st.markdown("---")
                             st.subheader("🎯 九宮格失誤熱區 (失誤權重佔比 %)")
@@ -242,7 +242,6 @@ def render_page():
                             # 確保有失誤率欄位可供加權計算
                             if 'miss_rate' in user_raw_df.columns:
                                 user_raw_df['miss_rate_calc'] = pd.to_numeric(user_raw_df['miss_rate'], errors='coerce').fillna(0)
-                                # 如果 miss_rate 大於 1.0，代表它是用 0-100 的格式儲存，需換算回 0-1 的小數以便當權重
                                 if user_raw_df['miss_rate_calc'].max() > 1.0:
                                     user_raw_df['miss_rate_calc'] = user_raw_df['miss_rate_calc'] / 100.0
                             else:
@@ -258,18 +257,13 @@ def render_page():
                                         if valid_mask.any():
                                             has_valid_data = True
                                             
-                                            # 1. 非線性權重：較差(0)->3點, 尚可(1)->1點, 良好(2)->0點
-                                            # 使用 np.where 來做條件轉換：如果值是 0 給 3，是 1 給 1，其他(2) 給 0
-                                            base_weights = np.where(vals[valid_mask] == 0, 3, np.where(vals[valid_mask] == 1, 1, 0))
-
-                                            # 2. 乘上「實際失誤發數 (miss_count)」代替失誤率，讓大樣本場次更有代表性
-                                            session_miss_counts = pd.to_numeric(user_raw_df.loc[valid_mask, 'miss_count'], errors='coerce').fillna(0)
-
-                                            #3. 如果該場 0 失誤，但教練仍評了「較差/尚可」，給予保底權重 0.5 避免瑕疵紀錄被歸零
-                                            session_miss_counts = np.maximum(session_miss_counts, 0.5)
-
-                                            # 加權公式：非線性點數 * (實際失誤數或保底值)
-                                            weighted_intensity = (base_weights * session_miss_counts).sum()
+                                            # 失誤基礎點數：較差(0)->2點, 尚可(1)->1點, 良好(2)->0點
+                                            base_weights = 2 - vals[valid_mask]
+                                            # 當次練習的失誤率
+                                            session_miss_rates = user_raw_df.loc[valid_mask, 'miss_rate_calc']
+                                            
+                                            # 核心加權公式：失誤基礎點數 * 當次失誤率
+                                            weighted_intensity = (base_weights * session_miss_rates).sum()
                                             
                                             zone_intensities[i, j] = weighted_intensity
                                             total_miss_intensity += weighted_intensity
@@ -286,7 +280,7 @@ def render_page():
                                     columns=['左 (Left)', '正中 (Center)', '右 (Right)']
                                 )
                                 
-                                # 上色規則 
+                                # 自訂上色規則 
                                 def color_rules_pct(val):
                                     if pd.isna(val):
                                         return ""
@@ -299,9 +293,30 @@ def render_page():
                                     else:
                                         return "background-color: #f8f9fa; color: #6c757d;" # 佔比 0% (灰)
 
-                                styled_grid = df_grid.style.format("{:.1f}%", na_rep="無資料").map(color_rules_pct)
+                                # 這裡改成強制加上 CSS 屬性，把寬、高鎖死在 120px，並把字體加粗放大
+                                styled_grid = df_grid.style.format("{:.1f}%", na_rep="無資料") \
+                                    .map(color_rules_pct) \
+                                    .set_properties(**{
+                                        'width': '120px',
+                                        'height': '120px',
+                                        'text-align': 'center',
+                                        'vertical-align': 'middle',
+                                        'font-size': '22px',
+                                        'font-weight': 'bold',
+                                        'border': '1px solid #ccc'
+                                    }) \
+                                    .set_table_styles([{
+                                        'selector': 'th',
+                                        'props': [('text-align', 'center'), ('font-size', '16px'), ('padding', '10px')]
+                                    }])
                                 
-                                st.dataframe(styled_grid, use_container_width=True)
+                                # 用 HTML 取代原本的 st.dataframe，並用 div 將整個九宮格置中
+                                html_table = f"""
+                                <div style="display: flex; justify-content: center; margin: 20px 0;">
+                                    {styled_grid.to_html()}
+                                </div>
+                                """
+                                st.markdown(html_table, unsafe_allow_html=True)
 
                             # =========================================================
                             st.markdown("---")
