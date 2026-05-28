@@ -74,20 +74,22 @@ def render_page():
                     else:
                         actual_user_col = user_col_zh
                     
-                   
-                    # 新增選手確認按鈕，確認後才展開 Tabs
+                    # =========================================================
+                    # 選手確認區塊：必須點擊按鈕，才會顯示下方的兩個分頁
+                    # =========================================================
                     st.header("🎯 選擇分析對象")
                     all_users = sorted(display_df[user_col_zh].dropna().unique().tolist())
                     selected_user = st.selectbox("請先選取選手：", all_users)
                     
+                    # 選手確認按鈕
                     if st.button("✅ 確認載入此選手資料", type="primary"):
                         st.session_state["confirmed_user"] = selected_user
 
-                    # 只有在有確認過的選手存在 Session State 時，才會跑出兩個分頁
+                    # 只有在「已經確認過」的狀態下，才會把兩個 Tabs 放出來
                     if "confirmed_user" in st.session_state and st.session_state["confirmed_user"] in all_users:
                         active_user = st.session_state["confirmed_user"]
                         
-                        # 貼心提示：如果下拉選單切換了但還沒按確認，提醒使用者
+                        # 貼心提示：如果使用者在下拉選單換了人，但還沒按確認鈕
                         if active_user != selected_user:
                             st.info(f"💡 目前下方顯示的是 **{active_user}** 的資料。若要查看 **{selected_user}** 的資料，請點擊上方「確認載入」按鈕。")
                             
@@ -104,7 +106,7 @@ def render_page():
                             st.dataframe(user_filtered_display_df.drop(columns=['系統內部序號'], errors='ignore'), use_container_width=True)
                             
                             st.markdown("---")
-                            st.subheader("🔍 查看單筆詳細數據")
+                            st.subheader("🔍 查看與管理單筆詳細數據")
 
                             # 設立兩個篩選欄位
                             filter_col2, filter_col3 = st.columns(2)
@@ -137,8 +139,8 @@ def render_page():
                                         for key, val in items[mid:]:
                                             if str(key).lower() in ['index', 'id']: continue
                                             st.write(f"**📌 {key}** : `{val}`")
-                            
-                                # 新增刪除功能與警告按鈕
+                                
+                                # 刪除功能與警告按鈕
                                 st.markdown("<br>", unsafe_allow_html=True)
                                 if st.button("🗑️ 刪除此筆紀錄"):
                                     st.session_state.delete_confirm_idx = selected_idx
@@ -147,8 +149,8 @@ def render_page():
                                     st.warning("⚠️ 警告：此動作無法復原，確定要刪除這筆資料嗎？")
                                     c_yes, c_no = st.columns(2)
                                     if c_yes.button("✅ 確定刪除", type="primary"):
-                                        
-                                        # 將 .iloc 改為 .loc，精確抓取正確的資料行
+                                    
+                                        # 將 iloc 換成 loc，使用絕對標籤定位，精準刪除
                                         target_row = raw_df.loc[selected_idx] 
                                         t_user = str(target_row[actual_user_col])
                                         t_created = str(target_row['created_at'])
@@ -199,7 +201,7 @@ def render_page():
                                     dkpi1.metric("個人平均 Hit Rate (總命中率)", f"{avg_hit_rate:.2%}")
                                     dkpi2.metric("個人平均 Miss Rate (失誤率)", f"{avg_miss_rate:.2%}")
 
-                                    st.markdown("#####  個人歷史表現趨勢 (Performance Trend)")
+                                    st.markdown("##### 個人歷史表現趨勢 (Performance Trend)")
                                     date_col = None
                                     for eng, zh in SHOOTING_FIELD_MAP.items():
                                         if "日期" in eng or "date" in zh:
@@ -253,6 +255,9 @@ def render_page():
                                     st.bar_chart(tension_trend)
                                 else:
                                     st.info("💡 累積更多緊張程度數據後將自動顯示圖表。")
+                    else:
+                        # 如果還沒按確認按鈕，就提示使用者
+                        st.info("👉 請點選上方「✅ 確認載入此選手資料」以解鎖歷史資料庫與分析看板。")
                 else:
                     st.warning("📭 雲端目前沒有任何紀錄。")
                 
