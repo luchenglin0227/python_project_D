@@ -9,9 +9,6 @@ from ocr_module import process_ocr_and_heatmap, calculate_sleep_duration
 
 def render_page():
     st.title(" 不定向飛靶成績與日常生活紀錄")
-    #st.caption("💡 提示：上傳成績單後，系統將自動啟動 AI 影像辨識")
-    st.markdown("---")
-
     # 初始化 Session State 狀態控制鎖
     #if "ocr_result_cache" not in st.session_state:
     #   st.session_state["ocr_result_cache"] = None
