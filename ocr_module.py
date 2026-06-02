@@ -27,14 +27,14 @@ def process_ocr_and_heatmap(file_bytes, is_pdf):
     ocr_results = reader.readtext(img)
     texts = []
     
-    # 拆解 AI 辨識結構
+    #拆解 AI 辨識結構
     for res in ocr_results:
         texts.append(res[1])
         
     full_text = " ".join(texts)
     heat_scores = analyze_heatmap_to_values(img)
 
-    # 📌 【修正重點 1】回傳 Dictionary，對齊 upload_page.py 的 .get() 取值方式
+    # 回傳 Dictionary，對齊 upload_page.py 的 .get() 取值方式
     return {
         "total_shots": 0,
         "first_hit": 0,
@@ -51,15 +51,10 @@ def convert_pdf_to_img(file_bytes):
     return cv2.imdecode(np.frombuffer(pix.tobytes("png"), np.uint8), cv2.IMREAD_COLOR)
 
 def analyze_heatmap_to_values(img: np.ndarray) -> list[float]:
-    """
-    【高精準抗干擾版】
-    1. 加強紅色極端值的捕捉能力
-    2. 縮緊高位邊界，並引入微量像素過濾機制，防止光譜圖外框雜訊干擾
-    """
     h_img, w_img, _ = img.shape
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
  
-    # ── 自動定位熱圖 ROI ──
+    # 自動定位熱圖
     mask_colored = cv2.inRange(hsv, np.array([0, 40, 40]), np.array([100, 255, 255]))
     row_counts   = np.sum(mask_colored > 0, axis=1)
     search_start = int(h_img * 0.55)
@@ -97,7 +92,6 @@ def analyze_heatmap_to_values(img: np.ndarray) -> list[float]:
             n_green  = np.sum(cols_green[c]  > 0)
             n_yellow = np.sum(cols_yellow[c] > 0)
             
-            # 📌 【修正重點 2】統一邏輯寫法，直接使用已經算好的 n_green 變數
             if n_red < 5:    n_red = 0
             if n_green < 5:  n_green = 0 
             if n_yellow < 5: n_yellow = 0

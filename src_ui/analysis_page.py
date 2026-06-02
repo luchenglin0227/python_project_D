@@ -408,19 +408,31 @@ def render_page():
                                 
                                 with ml_col1:
                                     st.write("**影響力權重排行**")
-    
-                                    # 1. 確保資料是由大到小排序，並重設索引
-                                    rank_df = imp_df.sort_values(by="重要度", ascending=False).reset_index(drop=True)
-    
-                                    # 2. 建立一個「名次」欄位（從 1 開始）
-                                    rank_df.index = rank_df.index + 1
-                                    rank_df = rank_df.reset_index().rename(columns={"index": "名次"})
-    
-                                    # 3. 顯示表格 (隱藏原本的預設索引欄)
-                                    st.dataframe(rank_df, hide_index=True, use_container_width=True)
+                                    
+                                    # 整理要顯示在排行榜上的數據 (將小數點轉換為 0~100 的百分比數值)
+                                    rank_df = imp_df[['影響因子', '重要度']].copy()
+                                    rank_df['重要度'] = rank_df['重要度'] * 100
+                                    # 讓 DataFrame 的 Index 變成 1, 2, 3... 當作名次
+                                    rank_df.index = range(1, len(rank_df) + 1)
+                                    
+                                    # 利用 st.dataframe 的 column_config 畫出內建進度條的排行榜
+                                    st.dataframe(
+                                        rank_df,
+                                        column_config={
+                                            "影響因子": st.column_config.TextColumn("作息因子"),
+                                            "重要度": st.column_config.ProgressColumn(
+                                                "權重佔比 (%)",
+                                                help="此數值代表該因子對命中率的影響程度",
+                                                format="%.1f%%",
+                                                min_value=0,
+                                                max_value=100,
+                                            ),
+                                        },
+                                        use_container_width=True
+                                    )
                                 
                                 with ml_col2:
-                                    st.write("#### 綜合建議")
+                                    st.write("**綜合建議**")
                                     
                                     # 利用迴圈抓取前 3 名影響力最大的因子
                                     for idx, row in imp_df.head(3).iterrows():

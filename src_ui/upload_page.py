@@ -1,11 +1,23 @@
 import streamlit as st
-import cv2
+#import cv2
 import pandas as pd
 import numpy as np
 from datetime import datetime
 from processor import DataProcessor, SHOOTING_FIELD_MAP  # 引入字典供中文映射使用
 import database
-from ocr_module import process_ocr_and_heatmap, calculate_sleep_duration
+#from ocr_module import process_ocr_and_heatmap, calculate_sleep_duration
+
+
+# 將原本依賴於 ocr_module 的睡眠計算功能搬過來
+def calculate_sleep_duration(bed, wake):
+    """計算睡眠時長"""
+    today = datetime.today()
+    t_bed = datetime.combine(today, bed)
+    t_wake = datetime.combine(today, wake)
+    if t_wake <= t_bed:
+        t_wake += timedelta(days=1)
+    diff = t_wake - t_bed
+    return round(diff.seconds / 3600, 1)
 
 def render_page():
     st.title("不定向飛靶成績與日常生活紀錄 ")
