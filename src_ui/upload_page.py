@@ -77,7 +77,7 @@ def render_page():
         # 1. 基本資訊
         st.markdown("### 1. 基本資訊")
         c1, c2 = st.columns(2)
-        user_id = c1.text_input("選手編號：", value="User_01")
+        user_id = c1.text_input("選手姓名/編號：", value="User_01")
         record_date = c2.date_input("射擊日期：", datetime.now())
         
         c3, c4 = st.columns(2)
@@ -169,7 +169,6 @@ def render_page():
 
         # 4. 日常生活因子紀錄
         st.markdown("### 4. 睡眠時間與日常生活因子紀錄")
-        st.caption("🔒 睡眠時數即時更新")
         c_sleep1, c_sleep2 = st.columns(2)
         bedtime = c_sleep1.time_input("請選擇入睡時間：", value=datetime.strptime("23:00", "%H:%M").time())
         wake_up_time = c_sleep2.time_input("請選擇起床時間：", value=datetime.strptime("07:00", "%H:%M").time())
