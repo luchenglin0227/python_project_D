@@ -161,10 +161,10 @@ def render_page():
 
         # 即時數據顯示
         rate_col1, rate_col2, rate_col3, rate_col4 = st.columns(4)
-        rate_col1.metric("💡 推算一發命中數", f"{first_hit} 發")
-        rate_col2.metric("🎯 總命中率", fmt_pct(calc_hit_rate))
-        rate_col3.metric("⚡ 一發命中率", fmt_pct(calc_first_hit_rate))
-        rate_col4.metric("❌ 失誤率", fmt_pct(calc_miss_rate))
+        rate_col1.metric(" 一發命中數", f"{first_hit} 發")
+        rate_col2.metric(" 一發命中率", fmt_pct(calc_first_hit_rate))
+        rate_col3.metric(" 總命中率", fmt_pct(calc_hit_rate))
+        rate_col4.metric(" 失誤率", fmt_pct(calc_miss_rate))
         st.markdown("---")
 
         # 4. 日常生活因子紀錄
