@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import database
 from processor import SHOOTING_FIELD_MAP
+from sklearn.ensemble import RandomForestRegressor
 
 def render_page():
     st.title("選手歷史歷程與數據分析看板")
@@ -351,16 +352,109 @@ def render_page():
                                     st.bar_chart(tension_trend)
                                 else:
                                     st.info("💡 累積更多緊張程度數據後將自動顯示圖表")
+                            # =========================================================
+                            # 機器學習區塊：利用隨機森林進行AI生活因子影響力分析 
+                            # =========================================================
+                            st.markdown("---")
+                            st.subheader("AI 生活因子分析")
+                            st.caption("利用隨機森林演算法找出關鍵因子並反推您的最佳個人作息數值(分析結果請供參考)")
+
+                            # 定義特徵與相對應的單位
+                            feature_cols = [
+                                'warm_up_time', 'breakfast_calories', 'breakfast_protein',
+                                'caffeine_intake', 'fatigue_level', 'tension_level', 'sleep_duration'
+                            ]
+                            
+                            feature_units = {
+                                'warm_up_time': '分鐘',
+                                'breakfast_calories': '大卡 (kcal)',
+                                'breakfast_protein': '公克 (g)',
+                                'caffeine_intake': '毫克 (mg)',
+                                'fatigue_level': '分 (1~5級)',
+                                'tension_level': '分 (1~5級)',
+                                'sleep_duration': '小時'
+                            }
+                            
+                            ml_target = hit_rate_col if hit_rate_col else 'hit_rate'
+
+                            ml_df = user_raw_df.copy()
+                            for col in feature_cols + [ml_target]:
+                                if col in ml_df.columns:
+                                    ml_df[col] = pd.to_numeric(ml_df[col], errors='coerce')
+                            
+                            ml_df = ml_df.dropna(subset=feature_cols + [ml_target])
+
+                            # 防呆：最少需要 5 筆才跑分析
+                            if len(ml_df) < 5:
+                                st.info(f"💡 數據量不足：目前您只有 {len(ml_df)} 筆完整的訓練與作息紀錄。請累積至少 5 筆")
+                            else:
+                                X = ml_df[feature_cols]
+                                y = ml_df[ml_target]
+                                
+                                # 訓練模型
+                                rf = RandomForestRegressor(n_estimators=100, random_state=42)
+                                rf.fit(X, y)
+                                importances = rf.feature_importances_
+                                
+                                zh_features = [reverse_map.get(col, col) for col in feature_cols]
+                                
+                                imp_df = pd.DataFrame({
+                                    "影響因子": zh_features,
+                                    "重要度": importances,
+                                    "英文欄位": feature_cols
+                                }).sort_values(by="重要度", ascending=False)
+                                
+                                ml_col1, ml_col2 = st.columns([5, 5])
+                                
+                                with ml_col1:
+                                    st.write("**生活因子影響力權重排行**")
+                                    st.bar_chart(imp_df.set_index("影響因子")["重要度"])
+                                
+                                with ml_col2:
+                                    # 抓出最關鍵因子
+                                    top_feature_row = imp_df.iloc[0]
+                                    top_feature_zh = top_feature_row["影響因子"]
+                                    top_feature_en = top_feature_row["英文欄位"]
+                                    
+                                    # 計算皮爾森相關係數 (判定正相關或負相關)
+                                    corr = ml_df[top_feature_en].corr(ml_df[ml_target])
+                                    
+                                    # 針對巔峰狀態數值(命中率排名前 30% 的場次)進行分析
+                                    threshold = ml_df[ml_target].quantile(0.7)
+                                    best_sessions = ml_df[ml_df[ml_target] >= threshold]
+                                    if len(best_sessions) < 2:
+                                        # 如果資料較少，改抓高於平均的場次
+                                        best_sessions = ml_df[ml_df[ml_target] >= ml_df[ml_target].mean()]
+
+                                    optimal_val = best_sessions[top_feature_en].mean()
+                                    unit = feature_units.get(top_feature_en, "")
+                                    
+                                    # 格式化數值 (評分級別取整數，其餘取小數點後一位)
+                                    if top_feature_en in ['fatigue_level', 'tension_level']:
+                                        optimal_val_str = f"{round(optimal_val)}"
+                                    else:
+                                        optimal_val_str = f"{optimal_val:.1f}"
+                                    
+                                    # 輸出建議面板
+                                    st.write("####  AI 專屬建議")
+                                    st.write(f"**{top_feature_zh}** 是目前主導您命中率的最關鍵因子。")
+                                    
+                                    if pd.isna(corr) or corr == 0:
+                                        st.info(f"請繼續保持穩定的 **{top_feature_zh}** 紀錄以觀察長期趨勢")
+                                    elif corr > 0:
+                                        st.success(f"**🟢 正向影響**\n\n 建議：** 將 {top_feature_zh} 維持在 **{optimal_val_str} {unit}**")
+                                    else:
+                                        st.warning(f"**🔴 負向干擾**\n\n 建議：** 請在賽前盡量將其壓低或控制在 **{optimal_val_str} {unit}** 附近")
+
                     else:
-                        # 如果還沒按確認按鈕，就提示使用者
-                        st.info(" 請點選上方「✅ 確認載入此選手資料」以解鎖歷史資料庫與分析看板")
+                        st.info("請點選上方「✅ 確認載入」以解鎖歷史資料庫與分析看板。")
                 else:
-                    st.warning("雲端目前沒有任何紀錄")
+                    st.warning("雲端目前沒有任何紀錄。")
                 
         except Exception as e:
             st.error(f"❌ 無法讀取歷史紀錄：{e}")
             
     elif admin_password == "":
-        st.warning("請輸入密碼以解鎖選手歷程數據")
+        st.warning("🔑 請輸入密碼以解鎖選手歷程數據。")
     else:
         st.error("❌ 密碼錯誤！")
