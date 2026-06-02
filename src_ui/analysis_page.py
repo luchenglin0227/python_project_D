@@ -356,8 +356,8 @@ def render_page():
                             # 機器學習區塊：利用隨機森林進行AI生活因子影響力分析 
                             # =========================================================
                             st.markdown("---")
-                            st.subheader("AI 生活因子分析")
-                            st.caption("利用隨機森林演算法找出關鍵因子並反推您的最佳個人作息數值(分析結果請供參考)")
+                            st.subheader("AI 建議區塊")
+                            st.caption("利用隨機森林演算法找出關鍵因子，並反推您的最佳個人作息數值。")
 
                             # 定義特徵與相對應的單位
                             feature_cols = [
@@ -386,7 +386,7 @@ def render_page():
 
                             # 防呆：最少需要 5 筆才跑分析
                             if len(ml_df) < 5:
-                                st.info(f"💡 數據量不足：目前您只有 {len(ml_df)} 筆完整的訓練與作息紀錄。請累積至少 5 筆")
+                                st.info(f"💡數據量不足：目前您只有 {len(ml_df)} 筆完整的訓練與作息紀錄。請至少累積5筆")
                             else:
                                 X = ml_df[feature_cols]
                                 y = ml_df[ml_target]
@@ -404,57 +404,55 @@ def render_page():
                                     "英文欄位": feature_cols
                                 }).sort_values(by="重要度", ascending=False)
                                 
-                                ml_col1, ml_col2 = st.columns([5, 5])
+                                ml_col1, ml_col2 = st.columns([4, 6])
                                 
                                 with ml_col1:
-                                    st.write("**生活因子影響力權重排行**")
+                                    st.write("**影響力權重排行**")
                                     st.bar_chart(imp_df.set_index("影響因子")["重要度"])
                                 
                                 with ml_col2:
-                                    # 抓出最關鍵因子
-                                    top_feature_row = imp_df.iloc[0]
-                                    top_feature_zh = top_feature_row["影響因子"]
-                                    top_feature_en = top_feature_row["英文欄位"]
+                                    st.write("#### AI 專屬綜合建議")
                                     
-                                    # 計算皮爾森相關係數 (判定正相關或負相關)
-                                    corr = ml_df[top_feature_en].corr(ml_df[ml_target])
-                                    
-                                    # 針對巔峰狀態數值(命中率排名前 30% 的場次)進行分析
-                                    threshold = ml_df[ml_target].quantile(0.7)
-                                    best_sessions = ml_df[ml_df[ml_target] >= threshold]
-                                    if len(best_sessions) < 2:
-                                        # 如果資料較少，改抓高於平均的場次
-                                        best_sessions = ml_df[ml_df[ml_target] >= ml_df[ml_target].mean()]
+                                    # 利用迴圈抓取前 3 名影響力最大的因子
+                                    for idx, row in imp_df.head(3).iterrows():
+                                        feature_zh = row["影響因子"]
+                                        feature_en = row["英文欄位"]
+                                        importance_pct = row["重要度"] * 100
+                                        
+                                        corr = ml_df[feature_en].corr(ml_df[ml_target])
+                                        
+                                        # 找出命中率排名前 30% 的場次
+                                        threshold = ml_df[ml_target].quantile(0.7)
+                                        best_sessions = ml_df[ml_df[ml_target] >= threshold]
+                                        if len(best_sessions) < 2:
+                                            best_sessions = ml_df[ml_df[ml_target] >= ml_df[ml_target].mean()]
 
-                                    optimal_val = best_sessions[top_feature_en].mean()
-                                    unit = feature_units.get(top_feature_en, "")
-                                    
-                                    # 格式化數值 (評分級別取整數，其餘取小數點後一位)
-                                    if top_feature_en in ['fatigue_level', 'tension_level']:
-                                        optimal_val_str = f"{round(optimal_val)}"
-                                    else:
-                                        optimal_val_str = f"{optimal_val:.1f}"
-                                    
-                                    # 輸出建議面板
-                                    st.write("####  AI 專屬建議")
-                                    st.write(f"**{top_feature_zh}** 是目前主導您命中率的最關鍵因子。")
-                                    
-                                    if pd.isna(corr) or corr == 0:
-                                        st.info(f"請繼續保持穩定的 **{top_feature_zh}** 紀錄以觀察長期趨勢")
-                                    elif corr > 0:
-                                        st.success(f"**🟢 正向影響**\n\n 建議：** 將 {top_feature_zh} 維持在 **{optimal_val_str} {unit}**")
-                                    else:
-                                        st.warning(f"**🔴 負向干擾**\n\n 建議：** 請在賽前盡量將其壓低或控制在 **{optimal_val_str} {unit}** 附近")
+                                        optimal_val = best_sessions[feature_en].mean()
+                                        unit = feature_units.get(feature_en, "")
+                                        
+                                        if feature_en in ['fatigue_level', 'tension_level']:
+                                            optimal_val_str = f"{round(optimal_val)}"
+                                        else:
+                                            optimal_val_str = f"{optimal_val:.1f}"
+                                        
+                                        # 使用 expander 把 3 個建議收納整齊，並在標題顯示權重佔比
+                                        with st.expander(f"關鍵因子 {idx+1}：{feature_zh} (影響力佔比 {importance_pct:.1f}%)", expanded=True):
+                                            if pd.isna(corr) or corr == 0:
+                                                st.info(f"維持穩定：繼續保持目前的 **{feature_zh}** 節奏。")
+                                            elif corr > 0:
+                                                st.success(f"**🟢 正向影響 (數值越高表現越好)**\n\n建議：** 將 {feature_zh} 維持或貼近在 **{optimal_val_str} {unit}")
+                                            else:
+                                                st.warning(f"**🔴 負向干擾 (數值越高越易失誤)**\n\n建議：** 請將 {feature_zh} 壓低並控制在 **{optimal_val_str} {unit}** 附近")
 
                     else:
-                        st.info("請點選上方「✅ 確認載入」以解鎖歷史資料庫與分析看板。")
+                        st.info("請點選上方「✅ 確認載入」以解鎖歷史資料庫與分析看板")
                 else:
-                    st.warning("雲端目前沒有任何紀錄。")
+                    st.warning("雲端目前沒有任何紀錄")
                 
         except Exception as e:
             st.error(f"❌ 無法讀取歷史紀錄：{e}")
             
     elif admin_password == "":
-        st.warning("🔑 請輸入密碼以解鎖選手歷程數據。")
+        st.warning("🔑 請輸入密碼以解鎖選手歷程數據")
     else:
         st.error("❌ 密碼錯誤！")
