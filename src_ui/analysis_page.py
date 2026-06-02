@@ -408,7 +408,16 @@ def render_page():
                                 
                                 with ml_col1:
                                     st.write("**影響力權重排行**")
-                                    st.bar_chart(imp_df.set_index("影響因子")["重要度"])
+    
+                                    # 1. 確保資料是由大到小排序，並重設索引
+                                    rank_df = imp_df.sort_values(by="重要度", ascending=False).reset_index(drop=True)
+    
+                                    # 2. 建立一個「名次」欄位（從 1 開始）
+                                    rank_df.index = rank_df.index + 1
+                                    rank_df = rank_df.reset_index().rename(columns={"index": "名次"})
+    
+                                    # 3. 顯示表格 (隱藏原本的預設索引欄)
+                                    st.dataframe(rank_df, hide_index=True, use_container_width=True)
                                 
                                 with ml_col2:
                                     st.write("#### 綜合建議")
