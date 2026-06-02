@@ -5,7 +5,7 @@ import database
 from processor import SHOOTING_FIELD_MAP
 
 def render_page():
-    st.title("📊 選手歷史歷程與數據分析看板")
+    st.title("選手歷史歷程與數據分析看板")
     
     # 製作簡易密碼鎖
     admin_password = st.text_input("🔒 請輸入後台管理密碼：", type="password")
@@ -85,15 +85,15 @@ def render_page():
                     # 選手確認按鈕
                     col_btn, _ = st.columns([2, 8])
                     with col_btn:
-                        if st.button("✅ 確認載入", use_container_width=True):
+                        if st.button("### ✅確認載入", use_container_width=True):
                             st.session_state["confirmed_user"] = selected_user
 
                     if "confirmed_user" in st.session_state and st.session_state["confirmed_user"] in all_users:
                         active_user = st.session_state["confirmed_user"]
                         
-                        # 貼心提示：如果使用者在下拉選單換了人，但還沒按確認鈕
+                        # 提醒機制
                         if active_user != selected_user:
-                            st.info(f"💡目前下方顯示的是 **{active_user}** 的資料。若要查看 **{selected_user}** 的資料，請點擊上方「確認載入」按鈕。")
+                            st.info(f"💡目前下方顯示的是 **{active_user}** 的資料。若要查看 **{selected_user}** 的資料，請點擊上方「✅確認載入」按鈕。")
                             
                         user_filtered_display_df = display_df[display_df[user_col_zh] == active_user]
 
