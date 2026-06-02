@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-from datetime import datetime, timedelta  # 補上 timedelta 避免計算睡眠時長出錯
+from datetime import datetime, timedelta  
 from processor import DataProcessor, SHOOTING_FIELD_MAP
 import database
 
@@ -19,16 +19,29 @@ def render_page():
     st.title("不定向飛靶成績與日常生活紀錄 ")
     st.markdown("---")
 
-    # 初始化 Session State 狀態控制鎖
+    # =============================================================
+    # 初始化 Session State (包含表單內的日常因子欄位，防止 Rerun 時被清空)
+    # =============================================================
     if "last_uploaded_file_name" not in st.session_state:
         st.session_state["last_uploaded_file_name"] = None
     if "upload_success" not in st.session_state:
         st.session_state["upload_success"] = False
+        
+    # 用於鎖定日常生活因子的 State 預設值
+    if "arrival_time" not in st.session_state:
+        st.session_state["arrival_time"] = datetime.strptime("08:30", "%H:%M").time()
+    if "warm_up_time" not in st.session_state:
+        st.session_state["warm_up_time"] = 20
+    if "breakfast_calories" not in st.session_state:
+        st.session_state["breakfast_calories"] = 450
+    if "breakfast_protein" not in st.session_state:
+        st.session_state["breakfast_protein"] = 25.0
+    if "caffeine_intake" not in st.session_state:
+        st.session_state["caffeine_intake"] = 100.0
 
-    # 若已成功上傳並鎖定，顯示成功畫面與「上傳其他成績單」按鈕
+    # 若已成功上傳並鎖定，顯示成功畫面
     if st.session_state["upload_success"]:
         st.success("🎉 資料已成功結構化，並即時同步至雲端 Google Sheets！")
-        
         if "last_clean_df" in st.session_state:
             reverse_map = {v: k for k, v in SHOOTING_FIELD_MAP.items()}
             raw_cols = st.session_state["last_clean_df"].columns.tolist()
@@ -48,23 +61,15 @@ def render_page():
             if "last_clean_df" in st.session_state:
                 del st.session_state["last_clean_df"]
             st.rerun()
-            
         return 
 
-    # =============================================================
     # 填寫與上傳區域
-    # =============================================================
     uploaded_file = st.file_uploader("上傳成績單 (JPG, PNG, PDF)", type=["jpg", "png", "pdf"])
-
     if uploaded_file and st.session_state["last_uploaded_file_name"] != uploaded_file.name:
         st.session_state["last_uploaded_file_name"] = uploaded_file.name
 
-    # 建立左右布局
     col_img, col_form = st.columns([4, 6])
     
-    # ============================================================
-    # 2. 左側區塊：檔案預覽
-    # ============================================================
     with col_img:
         st.subheader("成績檔案預覽")
         if uploaded_file:
@@ -75,9 +80,6 @@ def render_page():
         else:
             st.info("請在上傳區提供飛靶成績單圖片。")
 
-    # =============================================================
-    # 3. 右側區塊：控制面板
-    # =============================================================
     with col_form:
         st.subheader("射擊數據與每日作息填寫")
         
@@ -94,7 +96,6 @@ def render_page():
 
         # 2. 九方位空間分析
         st.markdown("**2. 九方位空間分析**")
-        
         status_options = ["無資料", "🔴較差", "🟡尚可", "🟢良好"]
         status_values = {"無資料": -1, "🔴較差": 0, "🟡尚可": 1, "🟢良好": 2}
         default_indices = [0] * 9
@@ -120,14 +121,13 @@ def render_page():
         ]
         st.markdown("---")
 
-        # 3. 射擊表現數據 (保持在表單外，以便能即時計算與顯示 Metric 燈號)
+        # 3. 射擊表現數據
         st.markdown("**3. 射擊表現數據**")
         c5, c7, c8 = st.columns(3)
         total_shots = c5.number_input("總發數：", min_value=0, value=0)
         second_hit = c7.number_input("二發命中數：", min_value=0, value=0)
         miss_count = c8.number_input("失誤數：", min_value=0, value=0)
 
-        # 防呆警告
         data_error_msg = ""
         if total_shots > 0:
             if second_hit > total_shots:
@@ -142,7 +142,6 @@ def render_page():
         if data_error_msg:
             st.error(f"⚠️數據邏輯錯誤：{data_error_msg}")
 
-        # 推算一發命中數
         first_hit = total_shots - second_hit - miss_count
         if first_hit < 0:
             first_hit = 0
@@ -166,27 +165,31 @@ def render_page():
         st.markdown("---")
 
         # =============================================================
-        # 4. 日常生活因子
+        # 4. 睡眠時間 
+        # =============================================================
+        st.markdown("**4. 睡眠時間紀錄**")
+        c_sleep1, c_sleep2 = st.columns(2)
+        bedtime = c_sleep1.time_input("請選擇入睡時間：", value=datetime.strptime("23:00", "%H:%M").time())
+        wake_up_time = c_sleep2.time_input("請選擇起床時間：", value=datetime.strptime("07:00", "%H:%M").time())
+
+        # 即時睡眠時長
+        sleep_duration = calculate_sleep_duration(bedtime, wake_up_time)
+        st.info(f"睡眠時長: **{sleep_duration}** 小時")
+        st.markdown("---")
+
+        # =============================================================
+        # 5. 日常生活因子 
         # =============================================================
         with st.form("shooting_form_final"):
-            st.markdown("**4. 日常生活因子紀錄**")
-            c_sleep1, c_sleep2 = st.columns(2)
-            bedtime = c_sleep1.time_input("請選擇入睡時間：", value=datetime.strptime("23:00", "%H:%M").time())
-            wake_up_time = c_sleep2.time_input("請選擇起床時間：", value=datetime.strptime("07:00", "%H:%M").time())
-
-            # 計算時長
-            sleep_duration = calculate_sleep_duration(bedtime, wake_up_time)
-            
-            st.markdown("---")
-            st.markdown("**5. 其餘日常生活因子欄位**")
+            st.markdown("**5. 日常生活因子欄位**")
             c11, c12 = st.columns(2)
-            arrival_time = c11.time_input("到場時間：", value=datetime.strptime("08:30", "%H:%M").time())
-            warm_up_time = c12.number_input("熱身時長 (min)", min_value=0, value=20)
+            arrival_time = c11.time_input("到場時間：", key="arrival_time")
+            warm_up_time = c12.number_input("熱身時長 (min)", min_value=0, key="warm_up_time")
 
             c13, c14, c15 = st.columns(3)
-            breakfast_calories = c13.number_input("早餐總熱量 (kcal)：", min_value=0, value=450)
-            breakfast_protein = c14.number_input("早餐蛋白質攝取量 (g)", min_value=0.0, value=25.0)
-            caffeine_intake = c15.number_input("咖啡因攝取 (mg)", min_value=0.0, value=100.0)
+            breakfast_calories = c13.number_input("早餐總熱量 (kcal)：", min_value=0, key="breakfast_calories")
+            breakfast_protein = c14.number_input("早餐蛋白質攝取量 (g)", min_value=0.0, key="breakfast_protein")
+            caffeine_intake = c15.number_input("咖啡因攝取 (mg)", min_value=0.0, key="caffeine_intake")
             
             c16, c17 = st.columns(2)
             fatigue_level = c16.select_slider("疲勞程度", options=[1, 2, 3, 4, 5], value=1)
@@ -197,7 +200,7 @@ def render_page():
             submit_btn = st.form_submit_button("資料上傳雲端資料庫")
 
         # =============================================================
-        # 4. 後端資料儲存與串接
+        # 後端資料儲存與串接
         # =============================================================
         if submit_btn:
             if not confirm_lock:
@@ -205,21 +208,15 @@ def render_page():
             elif data_error_msg:
                 st.error(f"⚠️上傳失敗：射擊數據有誤（{data_error_msg}），請修正後再上傳！")
             else:
-                # 重新動態計算最終睡眠時長，確保寫入資料庫的數值正確
-                final_sleep_duration = calculate_sleep_duration(bedtime, wake_up_time)
-                
                 final_shooting_data = {
-                    "總發數": total_shots,
-                    "一發命中數": first_hit,
-                    "二發命中數": second_hit,
-                    "失誤數": miss_count,
+                    "總發數": total_shots, "一發命中數": first_hit, "二發命中數": second_hit, "失誤數": miss_count,
                     "heatmap_matrix": updated_matrix
                 }
                 manual_life_data = {
                     "使用者編號": user_id, "射擊日期": record_date, "比賽時間": match_start_time, "靶場": shooting_range,
                     "入睡時間": bedtime, "起床時間": wake_up_time, "到場時間": arrival_time, "熱身時長": warm_up_time,
                     "早餐熱量": breakfast_calories, "蛋白質": breakfast_protein, "咖啡因攝取": caffeine_intake,
-                    "疲勞程度": fatigue_level, "緊張程度": tension_level, "睡眠時長": final_sleep_duration
+                    "疲勞程度": fatigue_level, "緊張程度": tension_level, "睡眠時長": sleep_duration
                 }
 
                 try:
