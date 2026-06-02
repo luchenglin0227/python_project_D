@@ -440,9 +440,9 @@ def render_page():
                                             if pd.isna(corr) or corr == 0:
                                                 st.info(f"維持穩定：繼續保持目前的{feature_zh}。")
                                             elif corr > 0:
-                                                st.success(f"**🟢 正向影響**\n\n 將 {feature_zh} 維持或貼近在{optimal_val_str} {unit}")
+                                                st.success(f"**🟢 正向影響**\n\n 將 {feature_zh} 維持或貼近在 {optimal_val_str} {unit}")
                                             else:
-                                                st.warning(f"**🔴 負向干擾**\n\n 將 {feature_zh} 壓低並控制在{optimal_val_str} {unit} ")
+                                                st.warning(f"**🔴 負向干擾**\n\n 將 {feature_zh} 壓低並控制在 {optimal_val_str} {unit} ")
 
                     else:
                         st.info("請點選上方「✅ 確認載入」以解鎖歷史資料庫與分析看板")
