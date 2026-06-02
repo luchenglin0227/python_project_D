@@ -411,7 +411,7 @@ def render_page():
                                     st.bar_chart(imp_df.set_index("影響因子")["重要度"])
                                 
                                 with ml_col2:
-                                    st.write("#### AI 專屬綜合建議")
+                                    st.write("#### AI 綜合建議")
                                     
                                     # 利用迴圈抓取前 3 名影響力最大的因子
                                     for idx, row in imp_df.head(3).iterrows():
@@ -436,13 +436,13 @@ def render_page():
                                             optimal_val_str = f"{optimal_val:.1f}"
                                         
                                         # 使用 expander 把 3 個建議收納整齊，並在標題顯示權重佔比
-                                        with st.expander(f"關鍵因子 {idx+1}：{feature_zh} (影響力佔比 {importance_pct:.1f}%)", expanded=True):
+                                        with st.expander(f"{feature_zh} (影響力佔比 {importance_pct:.1f}%)", expanded=True):
                                             if pd.isna(corr) or corr == 0:
-                                                st.info(f"維持穩定：繼續保持目前的 **{feature_zh}** 節奏。")
+                                                st.info(f"維持穩定：繼續保持目前的{feature_zh}。")
                                             elif corr > 0:
-                                                st.success(f"**🟢 正向影響 (數值越高表現越好)**\n\n建議：** 將 {feature_zh} 維持或貼近在 **{optimal_val_str} {unit}")
+                                                st.success(f"**🟢 正向影響**\n\n 將 {feature_zh} 維持或貼近在{optimal_val_str} {unit}")
                                             else:
-                                                st.warning(f"**🔴 負向干擾 (數值越高越易失誤)**\n\n建議：** 請將 {feature_zh} 壓低並控制在 **{optimal_val_str} {unit}** 附近")
+                                                st.warning(f"**🔴 負向干擾**\n\n 將 {feature_zh} 壓低並控制在{optimal_val_str} {unit} ")
 
                     else:
                         st.info("請點選上方「✅ 確認載入」以解鎖歷史資料庫與分析看板")
