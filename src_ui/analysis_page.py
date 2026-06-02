@@ -85,7 +85,7 @@ def render_page():
                     # 選手確認按鈕
                     col_btn, _ = st.columns([2, 8])
                     with col_btn:
-                        if st.button("### ✅確認載入", use_container_width=True):
+                        if st.button("✅確認載入", use_container_width=True):
                             st.session_state["confirmed_user"] = selected_user
 
                     if "confirmed_user" in st.session_state and st.session_state["confirmed_user"] in all_users:
