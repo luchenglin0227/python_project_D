@@ -98,7 +98,7 @@ class DataProcessor:
                         df['second_hit_count'].iloc[0] +
                         df['miss_count'].iloc[0])
             
-            # (此處的防呆只是最後一道防線，前端已經先擋下了)
+            # 防呆*前端後來也有寫
             if expected != total:
                 raise ValueError(f"數字不一致：總發數={total}，一發+二發+失誤={expected}")
 
@@ -132,7 +132,7 @@ class DataProcessor:
             for col_name in heatmap_cols:
                 df[col_name] = -1
 
-        # 9. 睡眠變數型別處理 (現在不會再有重複的欄位來干擾這行了)
+        # 9. 睡眠變數型別處理
         if 'sleep_duration' in df.columns:
             df['sleep_duration'] = df['sleep_duration'].apply(self.clean_numeric)
 

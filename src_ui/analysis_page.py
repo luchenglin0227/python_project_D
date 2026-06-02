@@ -8,13 +8,13 @@ def render_page():
     st.title("📊 選手歷史歷程與數據分析看板")
     
     # 製作簡易密碼鎖
-    admin_password = st.text_input("🔒 查看數據分析請輸入後台管理密碼：", type="password")
+    admin_password = st.text_input("🔒 請輸入後台管理密碼：", type="password")
     
     if admin_password == "Shooting":
-        st.success("🔓 密碼正確！已成功載入管理後台。")
+        st.success("🔓 密碼正確！已進入管理後台")
         st.markdown("---")
         
-        # 建立一個刷新按鈕
+        # 刷新按鈕
         if st.button("🔄 重新整理雲端資料"):
             database.load_records.clear()  
             st.rerun()
@@ -32,7 +32,7 @@ def render_page():
                     # 建立反向對映表
                     reverse_map = {v: k for k, v in SHOOTING_FIELD_MAP.items()}
                     
-                    # 數據轉換準備區（將 0,1,2 轉回中文供表格與文字顯示）
+                    # 九方位的0,1,2 轉回中文
                     heatmap_eng_cols = [
                         'miss_left_high', 'miss_middle_high', 'miss_right_high',
                         'miss_left_mid',  'miss_middle_mid',  'miss_right_mid',
@@ -40,7 +40,7 @@ def render_page():
                     ]
                     
                     # 建立數字轉中文的反向映射
-                    num_to_zh_map = {2: "良好", 1: "尚可", 0: "較差", "2": "良好", "1": "尚可", "0": "較差"}
+                    num_to_zh_map = {2: "良好", 1: "尚可", 0: "較差",-1: "無資料", "2": "良好", "1": "尚可", "0": "較差","-1": "無資料", }
                     
                     # 複製一份專門用來文字與篩選展示的 DataFrame (不影響原始數字 raw_df)
                     transformed_df = raw_df.copy()
@@ -52,7 +52,7 @@ def render_page():
                     display_df = transformed_df.rename(columns=reverse_map)
 
                     # 補齊 index 作為辨識不重複紀錄的依據
-                    display_df['系統內部序號'] = display_df.index
+                    display_df["系統內部序號"] = display_df.index
                     
                     # 取得核心欄位的中文名稱
                     user_col_zh = reverse_map.get(SHOOTING_FIELD_MAP.get("使用者編號", "user_id"), "使用者編號")
@@ -67,16 +67,16 @@ def render_page():
                     if created_col_zh in display_df.columns:
                         display_df[created_col_zh] = pd.to_datetime(display_df[created_col_zh], errors='coerce').dt.strftime('%Y-%m-%d %H:%M:%S')
                     
-                    # 定義資料庫 user_id 欄位名稱 (給後面分析跟刪除使用)
-                    if 'user_id' in raw_df.columns:
+                    # 定義資料庫 user_id 欄位名稱 
+                    if "user_id" in raw_df.columns:
                         actual_user_col = 'user_id'
-                    elif '使用者編號' in raw_df.columns:
-                        actual_user_col = '使用者編號'
+                    elif "使用者編號" in raw_df.columns:
+                        actual_user_col = "使用者編號"
                     else:
                         actual_user_col = user_col_zh
                     
                     # =========================================================
-                    # 選手確認區塊：必須點擊按鈕，才會顯示下方的兩個分頁
+                    # 選手確認
                     # =========================================================
                     st.header("選擇分析對象")
                     all_users = sorted(display_df[user_col_zh].dropna().unique().tolist())
@@ -88,24 +88,23 @@ def render_page():
                         if st.button("✅ 確認載入", use_container_width=True):
                             st.session_state["confirmed_user"] = selected_user
 
-                    # 只有在「已經確認過」的狀態下，才會把兩個 Tabs 放出來
                     if "confirmed_user" in st.session_state and st.session_state["confirmed_user"] in all_users:
                         active_user = st.session_state["confirmed_user"]
                         
                         # 貼心提示：如果使用者在下拉選單換了人，但還沒按確認鈕
                         if active_user != selected_user:
-                            st.info(f"💡 目前下方顯示的是 **{active_user}** 的資料。若要查看 **{selected_user}** 的資料，請點擊上方「確認載入」按鈕。")
+                            st.info(f"💡目前下方顯示的是 **{active_user}** 的資料。若要查看 **{selected_user}** 的資料，請點擊上方「確認載入」按鈕。")
                             
                         user_filtered_display_df = display_df[display_df[user_col_zh] == active_user]
 
                         # 使用 Tabs 將資料庫管理與圖表分析切開
-                        tab_db, tab_ana = st.tabs(["🗄️ 歷史資料庫與管理", "📈 選手數據分析看板"])
+                        tab_db, tab_ana = st.tabs(["歷史資料庫與管理", "選手數據分析看板"])
                         
                         # ==========================================
                         #  分頁 1：歷史資料庫管理與刪除
                         # ==========================================
                         with tab_db:
-                            st.subheader(f"{active_user} 的個人完整歷史資料庫")
+                            st.subheader(f"{active_user} 的個人資料庫")
                             st.dataframe(user_filtered_display_df.drop(columns=['系統內部序號'], errors='ignore'), use_container_width=True)
                             
                             st.markdown("---")
@@ -153,7 +152,6 @@ def render_page():
                                     c_yes, c_no = st.columns(2)
                                     if c_yes.button("✅ 確定刪除", type="primary"):
                                         
-                                        # 將 iloc 換成 loc，使用絕對標籤定位，精準刪除
                                         target_row = raw_df.loc[selected_idx] 
                                         t_user = str(target_row[actual_user_col])
                                         t_created = str(target_row['created_at'])
@@ -163,10 +161,10 @@ def render_page():
                                             if success:
                                                 st.success("🗑️ 刪除成功！")
                                                 st.session_state.delete_confirm_idx = None
-                                                database.load_records.clear() # 清除快取以抓取最新狀態
+                                                database.load_records.clear()
                                                 st.rerun()
                                             else:
-                                                st.error("❌ 刪除失敗，請檢查網路連線或金鑰。")
+                                                st.error("❌ 刪除失敗")
                                                 
                                     if c_no.button("❌ 點此取消"):
                                         st.session_state.delete_confirm_idx = None
@@ -175,7 +173,7 @@ def render_page():
                         # 分頁 2：視覺化數據分析看板
                         # =============================================================
                         with tab_ana:
-                            st.subheader(f"📈 選手 {active_user} 表現分析看板")
+                            st.subheader(f"選手 {active_user} 的表現分析看板")
                             
                             user_raw_df = raw_df[raw_df[actual_user_col] == active_user].copy()
                             user_raw_df = user_raw_df.rename(columns=SHOOTING_FIELD_MAP)
@@ -225,11 +223,11 @@ def render_page():
                                 st.info("💡 該選手目前尚無足夠的命中率數據生成歷史趨勢圖。")
 
                             # =========================================================
-                            # 九宮格熱區 (HTML/CSS 強制排版版)
+                            # 九宮格熱區圖
                             # =========================================================
                             st.markdown("---")
                             st.subheader("九方位失誤熱區圖")
-                            st.caption("數值代表各方位佔整體失誤的百分比，九宮格總和為 100%。\n\n*(💡 此佔比已根據「每次練習的實際失誤率」進行加權計算，失誤越嚴重的場次，其該方位的失誤權重越高)*")
+                            st.caption("數值代表各方位佔整體失誤的百分比。\n\n*(💡 此佔比已根據「每次練習的實際失誤率」進行加權計算，失誤越嚴重的場次，其該方位的失誤權重越高)*")
                             
                             grid_mapping = [
                                 ['miss_left_high', 'miss_middle_high', 'miss_right_high'],
@@ -243,17 +241,17 @@ def render_page():
                             
                             # 確保有失誤率欄位可供加權計算
                             if 'miss_rate' in user_raw_df.columns:
-                                user_raw_df['miss_rate_calc'] = pd.to_numeric(user_raw_df['miss_rate'], errors='coerce').fillna(0)
-                                if user_raw_df['miss_rate_calc'].max() > 1.0:
-                                    user_raw_df['miss_rate_calc'] = user_raw_df['miss_rate_calc'] / 100.0
+                                user_raw_df["miss_rate_calc"] = pd.to_numeric(user_raw_df["miss_rate"], errors='coerce').fillna(0)
+                                if user_raw_df["miss_rate_calc"].max() > 1.0:
+                                    user_raw_df["miss_rate_calc"] = user_raw_df["miss_rate_calc"] / 100.0
                             else:
-                                user_raw_df['miss_rate_calc'] = 0.0
+                                user_raw_df["miss_rate_calc"] = 0.0
                             
                             for i in range(3):
                                 for j in range(3):
                                     col = grid_mapping[i][j]
                                     if col in user_raw_df.columns:
-                                        vals = pd.to_numeric(user_raw_df[col], errors='coerce')
+                                        vals = pd.to_numeric(user_raw_df[col], errors="coerce")
                                         valid_mask = vals >= 0 # 排除 -1 (無資料)
                                         
                                         if valid_mask.any():
@@ -262,8 +260,7 @@ def render_page():
                                             # 失誤基礎點數：較差(0)->2點, 尚可(1)->1點, 良好(2)->0點
                                             base_weights = 2 - vals[valid_mask]
                                             # 當次練習的失誤率
-                                            session_miss_rates = user_raw_df.loc[valid_mask, 'miss_rate_calc']
-                                            
+                                            session_miss_rates = user_raw_df.loc[valid_mask, "miss_rate_calc"]
                                             # 核心加權公式：失誤基礎點數 * 當次失誤率
                                             weighted_intensity = (base_weights * session_miss_rates).sum()
                                             
@@ -271,7 +268,7 @@ def render_page():
                                             total_miss_intensity += weighted_intensity
                                             
                             if not has_valid_data or total_miss_intensity == 0:
-                                st.info("💡 該選手目前尚無足夠的九宮格空間數據，或所有場次皆無失誤。")
+                                st.info("💡 該選手目前尚無足夠的九宮格空間數據")
                             else:
                                 # 計算佔比
                                 grid_scores = (zone_intensities / total_miss_intensity) * 100.0
@@ -282,7 +279,7 @@ def render_page():
                                     columns=['左 (Left)', '正中 (Center)', '右 (Right)']
                                 )
                                 
-                                # 自訂上色規則 
+                                # 上色規則 
                                 def color_rules_pct(val):
                                     if pd.isna(val):
                                         return ""
@@ -295,7 +292,6 @@ def render_page():
                                     else:
                                         return "background-color: #f8f9fa; color: #6c757d;" # 佔比 0% (灰)
 
-                                # 這裡改成強制加上 CSS 屬性，把寬、高鎖死在 120px，並把字體加粗放大
                                 styled_grid = df_grid.style.format("{:.1f}%", na_rep="無資料") \
                                     .map(color_rules_pct) \
                                     .set_properties(**{
@@ -339,7 +335,7 @@ def render_page():
                                     sleep_trend = user_raw_df.groupby('sleep_group')['hit_rate_pct'].mean()
                                     st.line_chart(sleep_trend)
                                 else:
-                                    st.info("💡 累積更多睡眠數據後將自動顯示圖表。")
+                                    st.info("💡 累積更多睡眠數據後將自動顯示圖表")
             
                             with ana_col2:
                                 st.write("**⚡ 賽前緊張程度 vs 平均失誤率 (%)**")
@@ -354,17 +350,17 @@ def render_page():
                                     tension_trend = user_raw_df.groupby('tension_level')['miss_rate_pct'].mean()
                                     st.bar_chart(tension_trend)
                                 else:
-                                    st.info("💡 累積更多緊張程度數據後將自動顯示圖表。")
+                                    st.info("💡 累積更多緊張程度數據後將自動顯示圖表")
                     else:
                         # 如果還沒按確認按鈕，就提示使用者
-                        st.info("👉 請點選上方「✅ 確認載入此選手資料」以解鎖歷史資料庫與分析看板。")
+                        st.info(" 請點選上方「✅ 確認載入此選手資料」以解鎖歷史資料庫與分析看板")
                 else:
-                    st.warning("📭 雲端目前沒有任何紀錄。")
+                    st.warning("雲端目前沒有任何紀錄")
                 
         except Exception as e:
             st.error(f"❌ 無法讀取歷史紀錄：{e}")
             
     elif admin_password == "":
-        st.warning("🔑 請輸入密碼以解鎖選手歷程數據。")
+        st.warning("請輸入密碼以解鎖選手歷程數據")
     else:
-        st.error("❌ 密碼錯誤！您沒有存取歷史數據的權限。")
+        st.error("❌ 密碼錯誤！")

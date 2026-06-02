@@ -11,7 +11,7 @@ st.set_page_config(
 )
 
 # 側邊欄導航 (Sidebar)
-st.sidebar.title("🎯 系統選單")
+st.sidebar.title("系統選單")
 page = st.sidebar.radio("請選擇功能分頁：", ["📄 飛靶辨識與上傳", "📊 歷程數據與分析"])
 
 

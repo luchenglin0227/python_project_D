@@ -8,7 +8,7 @@ import database
 from ocr_module import process_ocr_and_heatmap, calculate_sleep_duration
 
 def render_page():
-    st.title("🎯 不定向飛靶成績與日常生活紀錄 (純手動模式)")
+    st.title("不定向飛靶成績與日常生活紀錄 ")
     st.markdown("---")
 
     # 初始化 Session State 狀態控制鎖
@@ -45,7 +45,7 @@ def render_page():
         return 
 
     # =============================================================
-    #  允許填寫與上傳
+    # 填寫與上傳區域
     # =============================================================
     uploaded_file = st.file_uploader("上傳成績單 (JPG, PNG, PDF)", type=["jpg", "png", "pdf"])
 
@@ -59,10 +59,10 @@ def render_page():
     # 2. 左側區塊：檔案預覽
     # ============================================================
     with col_img:
-        st.subheader("📸 成績檔案預覽")
+        st.subheader("成績檔案預覽")
         if uploaded_file:
             if uploaded_file.type == "application/pdf":
-                st.info("📂 PDF 檔案已上傳，請進行核對。")
+                st.info("檔案已上傳")
             else:
                 st.image(uploaded_file, use_container_width=True)
         else:
@@ -74,20 +74,20 @@ def render_page():
     with col_form:
         st.subheader("射擊數據與每日作息填寫")
         
-        # ── 第一區塊：基本資訊 ──
-        st.markdown("### 📋 1. 基本資訊")
+        # 1. 基本資訊
+        st.markdown("### 1. 基本資訊")
         c1, c2 = st.columns(2)
         user_id = c1.text_input("選手編號：", value="User_01")
         record_date = c2.date_input("射擊日期：", datetime.now())
         
         c3, c4 = st.columns(2)
-        # 固定預設時間以防 Streamlit 自動刷新跳掉
+        # 固定預設時間
         match_start_time = c3.time_input("訓練/比賽開始時間：", value=datetime.strptime("09:00", "%H:%M").time())
         shooting_range = c4.selectbox("射擊靶場：", ["A", "B", "C"])
         st.markdown("---")
 
-        # ── 第二區塊：九方位空間分析 ──
-        st.markdown("### 🎯 2. 九方位彈著點與命中率空間分析")
+        # 2. 九方位空間分析
+        st.markdown("### 2. 九方位彈著點與命中率空間分析")
         #st.caption("提示標籤顏色： :green[良好] (分數>=80) | :orange[尚可] (40~79) | :red[較差] (<40) | 無資料")
         
         status_options = ["無資料", "🔴較差", "🟡尚可", "🟢良好"]
@@ -116,8 +116,8 @@ def render_page():
         ]
         st.markdown("---")
 
-        # ── 第三區塊：射擊表現數據 ──
-        st.markdown("### 📊 3. 射擊表現數據")
+        # 3. 射擊表現數據
+        st.markdown("### 3. 射擊表現數據")
         c5, c7, c8 = st.columns(3)
         total_shots = c5.number_input("總發數：", min_value=0, value=0)
         second_hit = c7.number_input("二發命中數：", min_value=0, value=0)
@@ -136,11 +136,11 @@ def render_page():
         elif total_shots == 0 and (second_hit > 0 or miss_count > 0):
             data_error_msg = "當總發數為 0 時，不可有命中或失誤紀錄！"
 
-        # 若有錯誤，立刻在畫面上顯示紅字警告
+        # 若有錯誤顯示警告
         if data_error_msg:
             st.error(f"⚠️數據邏輯錯誤：{data_error_msg}")
 
-        # 由上述三個部分即時在背景用減法推算一發命中數
+        # 推算一發命中數
         first_hit = total_shots - second_hit - miss_count
         if first_hit < 0:
             first_hit = 0  # 避免出現負數
@@ -155,11 +155,11 @@ def render_page():
             calc_hit_rate, calc_first_hit_rate, calc_miss_rate = 0.0, 0.0, 0.0
 
        
-        # 格式化小助手：處理顯示格式 (把 100.0% 變成 100%)
+        # debug:處理顯示格式問題
         def fmt_pct(val):
             return f"{val * 100:.1f}%".replace(".0%", "%")
 
-        # 即時數據大看板
+        # 即時數據顯示
         rate_col1, rate_col2, rate_col3, rate_col4 = st.columns(4)
         rate_col1.metric("💡 推算一發命中數", f"{first_hit} 發")
         rate_col2.metric("🎯 總命中率", fmt_pct(calc_hit_rate))
@@ -167,18 +167,18 @@ def render_page():
         rate_col4.metric("❌ 失誤率", fmt_pct(calc_miss_rate))
         st.markdown("---")
 
-        # ── 第四區塊：睡眠時間 + 日常生活因子紀錄 ──
-        st.markdown("### 🌙 4. 睡眠時間與日常生活因子紀錄")
-        st.caption("🔒 睡眠時數動態聯動區：調整時間下方時數將即時更新")
+        # 4. 日常生活因子紀錄
+        st.markdown("### 4. 睡眠時間與日常生活因子紀錄")
+        st.caption("🔒 睡眠時數即時更新")
         c_sleep1, c_sleep2 = st.columns(2)
         bedtime = c_sleep1.time_input("請選擇入睡時間：", value=datetime.strptime("23:00", "%H:%M").time())
         wake_up_time = c_sleep2.time_input("請選擇起床時間：", value=datetime.strptime("07:00", "%H:%M").time())
 
         sleep_duration = calculate_sleep_duration(bedtime, wake_up_time)
-        st.info(f"⏳ (系統自動換算) 當日睡眠時長: {sleep_duration} 小時")
+        st.info(f"當日睡眠時長: {sleep_duration} 小時")
         st.markdown("")
 
-        # 日常生活因子其餘欄位大表單
+        # 5. 其餘日常生活因子欄位
         with st.form("shooting_form_final"):
             c11, c12 = st.columns(2)
             arrival_time = c11.time_input("到場時間：",  value=datetime.strptime("08:30", "%H:%M").time())
@@ -194,17 +194,16 @@ def render_page():
             tension_level = c17.select_slider("緊張程度", options=[1, 2, 3, 4, 5], value=1)
 
             st.markdown("---")
-            confirm_lock = st.checkbox("🚨 我已確認以上 1 ~ 4 區的所有輸入數據皆正確無誤", value=False)
-            submit_btn = st.form_submit_button("💾 結構化並上傳雲端資料庫")
+            confirm_lock = st.checkbox("我已確認以上 1 ~ 4 區的所有輸入數據皆正確無誤", value=False)
+            submit_btn = st.form_submit_button("資料上傳雲端資料庫")
 
         # =============================================================
         #  4. 後端資料儲存與串接
         # =============================================================
         if submit_btn:
             if not confirm_lock:
-                st.error("⚠️上傳失敗：請先勾選下方的「我已確認以上 1 ~ 4 區的所有輸入數據皆正確無誤」核取方塊！")
+                st.error("⚠️上傳失敗：請先勾選下方核取方塊！")
             elif data_error_msg:
-                # 若防呆機制被觸發，直接鎖死不讓它推上雲端
                 st.error(f"⚠️上傳失敗：射擊數據有誤（{data_error_msg}），請修正後再上傳！")
             else:
                 final_shooting_data = {
