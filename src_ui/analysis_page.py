@@ -411,7 +411,7 @@ def render_page():
                                     st.bar_chart(imp_df.set_index("影響因子")["重要度"])
                                 
                                 with ml_col2:
-                                    st.write("#### AI 綜合建議")
+                                    st.write("#### 綜合建議")
                                     
                                     # 利用迴圈抓取前 3 名影響力最大的因子
                                     for idx, row in imp_df.head(3).iterrows():
@@ -421,7 +421,7 @@ def render_page():
                                         
                                         corr = ml_df[feature_en].corr(ml_df[ml_target])
                                         
-                                        # 找出命中率排名前 30% 的場次
+                                        # 找出命中率排名前 30% 的場次 
                                         threshold = ml_df[ml_target].quantile(0.7)
                                         best_sessions = ml_df[ml_df[ml_target] >= threshold]
                                         if len(best_sessions) < 2:
