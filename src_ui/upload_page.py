@@ -87,7 +87,7 @@ def render_page():
         st.subheader("射擊數據與每日作息填寫")
         
         # 1. 基本資訊
-        st.markdown("## 1. 基本資訊")
+        st.markdown("**1. 基本資訊**")
         c1, c2 = st.columns(2)
         user_id = c1.text_input("選手姓名/編號：", value="User_01")
         record_date = c2.date_input("射擊日期：", datetime.now())
@@ -99,7 +99,7 @@ def render_page():
         st.markdown("---")
 
         # 2. 九方位空間分析
-        st.markdown("## 2. 九方位彈著點與命中率空間分析")
+        st.markdown("**2. 九方位空間分析**")
         #st.caption("提示標籤顏色： :green[良好] (分數>=80) | :orange[尚可] (40~79) | :red[較差] (<40) | 無資料")
         
         status_options = ["無資料", "🔴較差", "🟡尚可", "🟢良好"]
@@ -129,7 +129,7 @@ def render_page():
         st.markdown("---")
 
         # 3. 射擊表現數據
-        st.markdown("## 3. 射擊表現數據")
+        st.markdown("**3. 射擊表現數據**")
         c5, c7, c8 = st.columns(3)
         total_shots = c5.number_input("總發數：", min_value=0, value=0)
         second_hit = c7.number_input("二發命中數：", min_value=0, value=0)
@@ -180,7 +180,7 @@ def render_page():
         st.markdown("---")
 
         # 4. 日常生活因子紀錄
-        st.markdown("## 4. 睡眠時間與日常生活因子紀錄")
+        st.markdown("**4. 睡眠時間與日常生活因子紀錄**")
         c_sleep1, c_sleep2 = st.columns(2)
         bedtime = c_sleep1.time_input("請選擇入睡時間：", value=datetime.strptime("23:00", "%H:%M").time())
         wake_up_time = c_sleep2.time_input("請選擇起床時間：", value=datetime.strptime("07:00", "%H:%M").time())
